@@ -368,7 +368,7 @@ def yes_no(message):
     result = random.choice(["✅ Да!", "❌ Нет!"])
     bot.send_message(message.chat.id, result)
 
-# ========== РЕГИСТРАЦИЯ КОМАНД ==========
+# ========== СТАРТ ==========
 
 @bot.message_handler(commands=["start"])
 def start(message):
@@ -965,8 +965,16 @@ def echo(message):
     if "винди" in low and "гей" in low:
         who_gay(message)
         return
-    if "ало" in low:
-        responses = ["Ало", "Ало, чё надо?", "Алё-алё", "Ало, я тут", "Ало, не слышу"]
+    if low == "ало":
+        responses = [
+            "Ало", "Ало, чё надо?", "Алё-алё", "Ало, я тут", "Ало? Не слышу",
+            "Ало, братан", "Ало, это ты?", "Ало, не звони мне больше", "Ало, кто это?",
+            "Ало, говори", "Алло, приём", "Ало, связь плохая", "Ало, ты где?",
+            "Ало, перезвони", "Ало, я занят", "Ало, чё хотел?", "Ало, не слышу тебя",
+            "Ало, всё, пока", "Ало, ну чё там?", "Ало, я слушаю", "Ало, слышно меня?",
+            "Ало, ты молчишь?", "Ало, я на связи", "Ало, давай быстрее",
+            "Ало, что случилось?", "Ало, я не один", "Ало, позже позвоню"
+        ]
         bot.send_message(message.chat.id, random.choice(responses))
         return
 
@@ -991,7 +999,7 @@ def cb(call):
     parts = call.data.split("_")
     action = parts[0]
 
-    # === РАЗВОД ===
+    # РАЗВОД
     if action == "divorce":
         decision = parts[1]
         uid1 = int(parts[2])
@@ -1036,7 +1044,7 @@ def cb(call):
             bot.edit_message_text("Брак остался", call.message.chat.id, call.message.message_id)
         return
 
-    # === ПОТУШЕНИЕ ОГОНЬКА ===
+    # ПОТУШЕНИЕ ОГОНЬКА
     if action == "ext":
         decision = parts[1]
         uid1 = int(parts[2])
@@ -1081,7 +1089,7 @@ def cb(call):
             bot.edit_message_text("Огонёк остался", call.message.chat.id, call.message.message_id)
         return
 
-    # === ОГОНЁК СОЗДАНИЕ ===
+    # ОГОНЁК СОЗДАНИЕ
     if action == "fire":
         decision = parts[1]
         uid1 = int(parts[2])
@@ -1098,7 +1106,7 @@ def cb(call):
             bot.edit_message_text(b + " отказал(а) " + a + " 💔", call.message.chat.id, call.message.message_id)
         return
 
-    # === БРАК ===
+    # БРАК
     if action in ("accept", "reject"):
         uid1 = int(parts[1])
         uid2 = int(parts[2])
