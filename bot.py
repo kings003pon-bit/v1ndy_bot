@@ -237,7 +237,7 @@ def start(message):
 
 @bot.message_handler(commands=["help"])
 def help_cmd(message):
-    bot.send_message(message.chat.id, "винди кто гей / винди браки / шейкер / ш топ / винди огонёк @user / огонёк / топ огоньков / обнять / поцеловать")
+    bot.send_message(message.chat.id, "винди кто гей / винди браки / шейкер / ш топ / винди огонёк @user / огонёк / топ огоньков / обнять / поцеловать / лавю / ударить и др.")
 
 def who_gay(message):
     all_u = get_all_users()
@@ -262,6 +262,8 @@ def marry(message, target_id):
     )
     text = a + " делает предложение " + b + "!\n\n" + b + ", ты согласен(на)?"
     bot.send_message(message.chat.id, text, reply_markup=kb)
+
+# ========== ДЕЙСТВИЯ ==========
 
 def kiss(message, target_id):
     me = message.from_user.id
@@ -297,6 +299,227 @@ def hug(message, target_id):
         a + " сжал " + b + " в объятиях 💗",
     ]
     bot.send_message(message.chat.id, random.choice(phrases))
+
+def hit(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя бить нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " ударил " + b + " 💥",
+        a + " сильно ударил " + b + " ⚡",
+        a + " ударил " + b + " в плечо 🥊",
+        a + " дал " + b + " пощёчину ✋",
+        a + " ударил " + b + " кулаком 👊",
+        a + " заехал " + b + " по голове 💢",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def kick(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя пинать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " пнул " + b + " 🦵",
+        a + " пнул " + b + " под зад 🦶",
+        a + " сильно пнул " + b + " 🦿",
+        a + " пнул " + b + " в бок 💨",
+        a + " пнул " + b + " ногой 🦵",
+        a + " дал " + b + " пинка 👟",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def slap(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя шлёпать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " шлёпнул " + b + " 🖐",
+        a + " звонко шлёпнул " + b + " 👋",
+        a + " шлёпнул " + b + " по попе ✋",
+        a + " шлёпнул " + b + " 🍑",
+        a + " дал " + b + " шлепок 🖐️",
+        a + " шлёпнул " + b + " ладонью 🤚",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def bite(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя кусать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " укусил " + b + " 🦷",
+        a + " сильно укусил " + b + " 😬",
+        a + " укусил " + b + " за руку 🩸",
+        a + " укусил " + b + " за плечо 🦷",
+        a + " куснул " + b + " 🐾",
+        a + " укусил " + b + " до крови 🩹",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def pat(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя гладить нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " погладил " + b + " 🤍",
+        a + " нежно погладил " + b + " 🕊",
+        a + " погладил " + b + " по голове 🌿",
+        a + " ласково погладил " + b + " ✨",
+        a + " погладил " + b + " по спине 🍃",
+        a + " мягко погладил " + b + " 🤍",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def wink(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себе подмигивать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " подмигнул " + b + " 😉",
+        a + " игриво подмигнул " + b + " 🎭",
+        a + " загадочно подмигнул " + b + " 🌙",
+        a + " весело подмигнул " + b + " ✨",
+        a + " хитро подмигнул " + b + " 🃏",
+        a + " подмигнул " + b + " 🌟",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def pinch(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя щипать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " ущипнул " + b + " 🤏",
+        a + " ущипнул " + b + " за бок 😄",
+        a + " больно ущипнул " + b + " 😆",
+        a + " ущипнул " + b + " за щёку 🌸",
+        a + " ущипнул " + b + " за руку 🤏",
+        a + " слегка ущипнул " + b + " 😊",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def tickle(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя щекотать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " защекотал " + b + " до слёз 😂",
+        a + " щекочет " + b + " 🪶",
+        a + " защекотал " + b + " 🤣",
+        a + " щекочет " + b + " под рёбрами 🪶",
+        a + " защекотал " + b + " до икоты 🤭",
+        a + " щекочет " + b + " 🌾",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def feed(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя кормить нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " покормил " + b + " 🍰",
+        a + " накормил " + b + " 🍲",
+        a + " покормил " + b + " с ложечки 🥄",
+        a + " угостил " + b + " 🍫",
+        a + " покормил " + b + " вкусненьким 🍓",
+        a + " накормил " + b + " до отвала 🍕",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def love(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя любить нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " признался в чувствах " + b + " 💌",
+        a + " признался в любви " + b + " 💘",
+        a + " признался в своих чувствах " + b + " 🌹",
+        a + " открыто признался в чувствах " + b + " 💫",
+        a + " нежно признался в чувствах " + b + " 💞",
+        a + " искренне признался в чувствах " + b + " ✨",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def steal(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя украсть нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " украл сердце " + b + " 💘",
+        a + " украл " + b + " 🌙",
+        a + " украл поцелуй у " + b + " 💋",
+        a + " украл " + b + " навсегда 💫",
+        a + " украл сон " + b + " 🌌",
+        a + " украл улыбку " + b + " ✨",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def spank(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя шлёпать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " отшлёпал " + b + " 🖐",
+        a + " отшлёпал " + b + " ремнём ⛓",
+        a + " строго отшлёпал " + b + " ✋",
+        a + " отшлёпал " + b + " за шалости 🌿",
+        a + " наказал " + b + " шлепком 🍑",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def punish(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя наказывать нельзя")
+        return
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    phrases = [
+        a + " наказал " + b + " ⚖",
+        a + " строго наказал " + b + " 🖤",
+        a + " наказал " + b + " за проступок 🗡",
+        a + " наказал " + b + " по заслугам ⚔",
+        a + " наказал " + b + " 🌑",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+# ========== БРАК ==========
 
 def add_marriage(uid1, uid2):
     a, b = sorted([uid1, uid2])
@@ -335,6 +558,8 @@ def show_marriages(message):
         t += str(i) + ". " + a + " + " + b + "\n"
         t += "   Браков: " + str(cnt) + ", вместе: " + together + "\n\n"
     bot.send_message(message.chat.id, t)
+
+# ========== ШЕЙКЕР ==========
 
 def get_shaker(uid):
     conn = get_conn()
@@ -389,16 +614,18 @@ def shaker_top(message):
         t += str(i) + ". " + get_user_tag(uid) + " - " + str(score) + "\n"
     bot.send_message(message.chat.id, t)
 
+# ========== ОГОНЁК ==========
+
 def offer_fire(message, target_id):
     me = message.from_user.id
     if me == target_id:
         bot.reply_to(message, "Нельзя зажечь огонёк с самим собой")
         return
     if get_duo_fire(me):
-        bot.send_message(message.chat.id, "У тебя уже есть огонёк")
+        bot.send_message(message.chat.id, "Огонёк зажжён 🔥")
         return
     if get_duo_fire(target_id):
-        bot.send_message(message.chat.id, "У этого пользователя уже есть огонёк")
+        bot.send_message(message.chat.id, "У этого пользователя огонёк зажжён 🔥")
         return
 
     a = get_user_tag(me)
@@ -431,8 +658,21 @@ def extend_fire(message):
     now = int(time.time())
     today_start = int(datetime.datetime.utcnow().replace(hour=0, minute=1, second=0, microsecond=0).timestamp())
 
+    if my_last >= today_start and other_last >= today_start:
+        phrases = [
+            "Огонёк уже зажжён 🔥",
+            "Огонёк горит вовсю 🔥 Приходи завтра",
+            "Огонёк уже пылает 🔥 Ждём завтра",
+            "Огонёк зажжён 🔥 Не забывай про него завтра",
+            "Огонёк ярко горит 🔥 Возвращайся завтра",
+        ]
+        bot.send_message(message.chat.id, random.choice(phrases))
+        return
+
     if my_last >= today_start:
-        bot.send_message(message.chat.id, "Ты уже писал огонёк сегодня. Ждём партнёра")
+        partner_id = uid2 if me == uid1 else uid1
+        partner = get_user_tag(partner_id)
+        bot.send_message(message.chat.id, "Ты уже писал огонёк сегодня. Ждём " + partner)
         return
 
     partner_id = uid2 if me == uid1 else uid1
@@ -571,15 +811,42 @@ def echo(message):
         break_fire_request(message)
         return
 
-    # Обнимашки
-    if low == "обнять" and message.reply_to_message:
-        hug(message, message.reply_to_message.from_user.id)
-        return
+    # === ДЕЙСТВИЯ ===
+    if message.reply_to_message:
+        target_id = message.reply_to_message.from_user.id
 
-    # Поцелуй
-    if low == "поцеловать" and message.reply_to_message:
-        kiss(message, message.reply_to_message.from_user.id)
-        return
+        if low == "обнять":
+            hug(message, target_id); return
+        if low == "поцеловать":
+            kiss(message, target_id); return
+        if low == "ударить":
+            hit(message, target_id); return
+        if low == "пнуть":
+            kick(message, target_id); return
+        if low == "шлёпнуть":
+            slap(message, target_id); return
+        if low == "укусить":
+            bite(message, target_id); return
+        if low == "погладить":
+            pat(message, target_id); return
+        if low == "подмигнуть":
+            wink(message, target_id); return
+        if low == "ущипнуть":
+            pinch(message, target_id); return
+        if low == "щекотать":
+            tickle(message, target_id); return
+        if low == "покормить":
+            feed(message, target_id); return
+        if low == "лавю":
+            love(message, target_id); return
+        if low == "украсть":
+            steal(message, target_id); return
+        if low == "отшлёпать":
+            spank(message, target_id); return
+        if low == "наказать":
+            punish(message, target_id); return
+        if "замуж" in low or "женись" in low or "женить" in low:
+            marry(message, target_id); return
 
     # Шейкер
     if low == "шейкер":
@@ -600,10 +867,8 @@ def echo(message):
         responses = ["Ало", "Ало, чё надо?", "Алё-алё", "Ало, я тут", "Ало, не слышу"]
         bot.send_message(message.chat.id, random.choice(responses))
         return
-    if message.reply_to_message:
-        target_id = message.reply_to_message.from_user.id
-        if "замуж" in low or "женись" in low or "женить" in low:
-            marry(message, target_id)
+
+# ========== ОБРАБОТЧИК КНОПОК ==========
 
 @bot.callback_query_handler(func=lambda call: True)
 def cb(call):
