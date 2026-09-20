@@ -262,6 +262,16 @@ def marry(message, target_id):
     text = a + " делает предложение " + b + "!\n\n" + b + ", ты согласен(на)?"
     bot.send_message(message.chat.id, text, reply_markup=kb)
 
+# ========== РАНДОМ ==========
+
+def coin_flip(message):
+    result = random.choice(["🪙 Орёл!", "🪙 Решка!"])
+    bot.send_message(message.chat.id, result)
+
+def yes_no(message):
+    result = random.choice(["✅ Да!", "❌ Нет!"])
+    bot.send_message(message.chat.id, result)
+
 # ========== ДЕЙСТВИЯ ==========
 
 def kiss(message, target_id):
@@ -781,17 +791,16 @@ def echo(message):
         if ADMIN_ID in pending_admin:
             target_uid, target_fire = pending_admin[ADMIN_ID]
             if text == SECRET_CODE:
-                conn = get_conn()
-                cur = conn.cursor()
-                cur.execute("""
-                    INSERT INTO shaker (uid, score, last_play) VALUES (%s, %s, 0)
-                    ON CONFLICT (uid) DO UPDATE SET score = EXCLUDED.score
-                """, (target_uid, target_fire))
-                conn.commit()
-                cur.close()
-                conn.close()
-                tag = get_user_tag(target_uid)
-                bot.send_message(message.chat.id, "✅ Число " + str(target_fire) + " выдано " + tag)
+                row = get_duo_fire(target_uid)
+                if not row:
+                    tag = get_user_tag(target_uid)
+                    bot.send_message(message.chat.id, "❌ У " + tag + " нет огонька.")
+                else:
+                    uid1, uid2, fire, is_grey, last1, last2, last_ext = row
+                    update_duo_fire(uid1, uid2, target_fire, 0, last1, last2, last_ext)
+                    a = get_user_tag(uid1)
+                    b = get_user_tag(uid2)
+                    bot.send_message(message.chat.id, "✅ Огонёк " + str(target_fire) + " выдан:\n" + a + " + " + b)
             else:
                 bot.send_message(message.chat.id, "❌ Неверный код")
             del pending_admin[ADMIN_ID]
@@ -837,6 +846,14 @@ def echo(message):
         return
     if low == "винди разорви огонёк":
         break_fire_request(message)
+        return
+
+    # === РАНДОМ ===
+    if low == "винди орел или решка" or low == "винди орёл или решка":
+        coin_flip(message)
+        return
+    if low == "винди да или нет":
+        yes_no(message)
         return
 
     # === ДЕЙСТВИЯ ===
