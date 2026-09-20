@@ -15,7 +15,38 @@ SECRET_CODE = "v1ndyfire"
 
 bot = telebot.TeleBot(TOKEN)
 pending_admin = {}
-games = {}  # uid -> {"num": N, "attempts": N}
+pending_coins = {}
+games = {}
+
+DOG_ART = """\\
+╱▔▔╲▂▂▂╱▔▔╲
+╲╱╳╱▔╲╱▔╲╱▔
+┈┈┃▏▕▍▏▕▍▏
+┈┈┃╲▂╱╲▂╱╲┈╭━╮
+┈┈┃┊┳┊┊┊┊┊▔╰┳╯
+┈┈┃┊╰━━━┳━━━╯
+┈┈┃┊┊┊┊╭╯"""
+
+CAT_ART = """\\
+─────────────────────────
+───────▄▀▄─────▄▀▄───────
+──────▄█░░▀▀▀▀▀░░█▄──────
+──▄▄──█░░░░░░░░░░░█──▄▄──
+─█▄▄█─█░░▀░░┬░░▀░░█─█▄▄█─"""
+
+SNAKE_ART = """\\
+──────────────────────
+▄▄▀█▄───▄───────▄─────
+▀▀▀██──███─────███────
+░▄██▀░█████░░░█████░░░
+███▀▄███░███░███░███░▄
+▀█████▀░░░▀███▀░░░▀██▀"""
+
+PETS = {
+    "dog": {"name": "Собака", "emoji": "🐶", "art": DOG_ART},
+    "cat": {"name": "Кошка", "emoji": "🐱", "art": CAT_ART},
+    "snake": {"name": "Змея", "emoji": "🐍", "art": SNAKE_ART},
+}
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
@@ -81,6 +112,20 @@ def init_db():
             agree1 INTEGER DEFAULT 0,
             agree2 INTEGER DEFAULT 0,
             PRIMARY KEY (uid1, uid2)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pets (
+            uid BIGINT PRIMARY KEY,
+            pet_type TEXT,
+            pet_name TEXT
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pet_skins (
+            uid BIGINT,
+            pet_type TEXT,
+            PRIMARY KEY (uid, pet_type)
         )
     """)
     cur.execute("""
@@ -168,6 +213,17 @@ def add_coins(uid, amount):
     cur.close()
     conn.close()
 
+def set_coins(uid, amount):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO balance (uid, coins, wins) VALUES (%s, %s, 0)
+        ON CONFLICT (uid) DO UPDATE SET coins = %s
+    """, (uid, amount, amount))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 def add_win(uid):
     conn = get_conn()
     cur = conn.cursor()
@@ -183,15 +239,12 @@ def get_level(coins):
     if coins <= 100:
         return 1
     level = 1
-    low = 0
     high = 100
     while level < 50:
-        next_low = high + 1
         next_high = high * 2
         if coins <= next_high:
             return level + 1
         level += 1
-        low = next_low
         high = next_high
     return 50
 
@@ -203,6 +256,61 @@ def get_balance_top():
     cur.close()
     conn.close()
     return rows
+
+# ========== ПИТОМЦЫ ==========
+
+def get_pet(uid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT pet_type, pet_name FROM pets WHERE uid = %s", (uid,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+def create_pet(uid, pet_type):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO pets (uid, pet_type, pet_name) VALUES (%s, %s, NULL)
+        ON CONFLICT (uid) DO NOTHING
+    """, (uid, pet_type))
+    cur.execute("""
+        INSERT INTO pet_skins (uid, pet_type) VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+    """, (uid, pet_type))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def set_pet_name(uid, name):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE pets SET pet_name = %s WHERE uid = %s", (name, uid))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def set_pet_type(uid, pet_type):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE pets SET pet_type = %s WHERE uid = %s", (pet_type, uid))
+    cur.execute("""
+        INSERT INTO pet_skins (uid, pet_type) VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+    """, (uid, pet_type))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_pet_skins(uid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT pet_type FROM pet_skins WHERE uid = %s", (uid,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [r[0] for r in rows]
 
 # ========== ПАРНЫЙ ОГОНЁК ==========
 
@@ -232,8 +340,7 @@ def get_duo_fire_with(uid, partner_uid):
     return row
 
 def count_duo_fires(uid):
-    rows = get_all_duo_fires(uid)
-    return len(rows)
+    return len(get_all_duo_fires(uid))
 
 def create_duo_fire(uid1, uid2):
     a, b = sorted([uid1, uid2])
@@ -393,11 +500,9 @@ def divorce_request(message):
     if not row:
         bot.send_message(message.chat.id, "У тебя нет брака")
         return
-
     uid1, uid2 = row[0], row[1]
     a = get_user_tag(uid1)
     b = get_user_tag(uid2)
-
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
@@ -407,7 +512,6 @@ def divorce_request(message):
     conn.commit()
     cur.close()
     conn.close()
-
     kb = types.InlineKeyboardMarkup()
     kb.add(
         types.InlineKeyboardButton("Да", callback_data="divorce_yes_" + str(uid1) + "_" + str(uid2)),
@@ -425,11 +529,9 @@ def extinguish_request(message, target_id):
         partner = get_user_tag(target_id)
         bot.send_message(message.chat.id, "У тебя нет огонька с " + partner)
         return
-
     uid1, uid2 = row[0], row[1]
     a = get_user_tag(uid1)
     b = get_user_tag(uid2)
-
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
@@ -439,7 +541,6 @@ def extinguish_request(message, target_id):
     conn.commit()
     cur.close()
     conn.close()
-
     kb = types.InlineKeyboardMarkup()
     kb.add(
         types.InlineKeyboardButton("Да", callback_data="ext_yes_" + str(uid1) + "_" + str(uid2)),
@@ -471,11 +572,9 @@ def guess_number(message):
         return
     if num < 1 or num > 100:
         return
-
     game = games[me]
     secret = game["num"]
     game["attempts"] -= 1
-
     if num == secret:
         reward = random.randint(10, 20)
         add_coins(me, reward)
@@ -483,12 +582,10 @@ def guess_number(message):
         del games[me]
         bot.reply_to(message, "🎉 Угадал! Число " + str(secret) + "\n\n+" + str(reward) + " монет 💰")
         return
-
     if game["attempts"] <= 0:
         del games[me]
         bot.reply_to(message, "❌ Не угадал! Число было " + str(secret) + ".")
         return
-
     if num < secret:
         bot.reply_to(message, "Больше ⬆️ (" + str(game["attempts"]) + " попыток)")
     else:
@@ -497,12 +594,10 @@ def guess_number(message):
 # ========== РАНДОМ ==========
 
 def coin_flip(message):
-    result = random.choice(["🪙 Орёл!", "🪙 Решка!"])
-    bot.send_message(message.chat.id, result)
+    bot.send_message(message.chat.id, random.choice(["🪙 Орёл!", "🪙 Решка!"]))
 
 def yes_no(message):
-    result = random.choice(["✅ Да!", "❌ Нет!"])
-    bot.send_message(message.chat.id, result)
+    bot.send_message(message.chat.id, random.choice(["✅ Да!", "❌ Нет!"]))
 
 # ========== СТАРТ ==========
 
@@ -521,13 +616,10 @@ def show_profile(message):
     save_user(me, message.from_user.first_name, message.from_user.username)
     coins, wins = get_balance(me)
     level = get_level(coins)
-
     t = "👤 Профиль " + get_user_tag(me) + "\n\n"
     t += "🆙 Уровень: " + str(level) + "\n"
     t += "💰 Монеты: " + str(coins) + "\n"
     t += "🎲 Побед: " + str(wins) + "\n"
-
-    # Огоньки
     fires = get_all_duo_fires(me)
     if fires:
         for i, f in enumerate(fires, 1):
@@ -536,8 +628,6 @@ def show_profile(message):
             partner = get_user_tag(partner_id)
             status = "серый ⚫" if is_grey else "зажжён 🔴"
             t += "🔥 Огонёк " + str(i) + ": " + partner + " (" + status + ", " + str(fire) + ")\n"
-
-    # Брак
     mar = get_marriage(me)
     if mar:
         uid1, uid2, cnt, since = mar
@@ -545,12 +635,15 @@ def show_profile(message):
         partner = get_user_tag(partner_id)
         together = time_together(time.time() - since)
         t += "💍 Брак: " + partner + " (вместе " + together + ")\n"
-
-    # Шейкер
     score, last = get_shaker(me)
     if score > 0:
         t += "🎮 Шейкер: " + str(score) + "\n"
-
+    pet = get_pet(me)
+    if pet:
+        pet_type, pet_name = pet
+        info = PETS.get(pet_type)
+        if info:
+            t += info["emoji"] + " Питомец: " + info["name"] + "\n"
     bot.send_message(message.chat.id, t)
 
 def show_balance(message):
@@ -571,6 +664,83 @@ def show_balance_top(message):
         t += prefix + " " + get_user_tag(uid) + " — " + str(coins) + "\n"
     bot.send_message(message.chat.id, t)
 
+# ========== ПИТОМЕЦ — КОМАНДЫ ==========
+
+def buy_pet(message):
+    me = message.from_user.id
+    save_user(me, message.from_user.first_name, message.from_user.username)
+    if get_pet(me):
+        bot.send_message(message.chat.id, "У тебя уже есть питомец")
+        return
+    coins, _ = get_balance(me)
+    if coins < 45:
+        bot.send_message(message.chat.id, "Недостаточно монет. Нужно 45")
+        return
+    set_coins(me, coins - 45)
+    r = random.randint(1, 100)
+    if r <= 33:
+        pet_type = "dog"
+    elif r <= 66:
+        pet_type = "cat"
+    else:
+        pet_type = "snake"
+    create_pet(me, pet_type)
+    info = PETS[pet_type]
+    bot.send_message(message.chat.id, "🎉 Тебе выпал питомец: " + info["emoji"] + " " + info["name"] + "!")
+
+def show_pet(message):
+    me = message.from_user.id
+    pet = get_pet(me)
+    if not pet:
+        bot.send_message(message.chat.id, "У тебя нет питомца. Купи: винди заведи питомца")
+        return
+    pet_type, pet_name = pet
+    info = PETS.get(pet_type)
+    if not info:
+        return
+    t = info["emoji"] + " " + info["name"] + "\n\n"
+    t += info["art"] + "\n\n"
+    if pet_name:
+        t += "Имя: " + pet_name
+    else:
+        t += "Имя: не задано\nНапиши: изменить имя питомца [имя]"
+    bot.send_message(message.chat.id, t)
+
+def change_pet_name(message, new_name):
+    me = message.from_user.id
+    pet = get_pet(me)
+    if not pet:
+        bot.send_message(message.chat.id, "У тебя нет питомца. Купи: винди заведи питомца")
+        return
+    set_pet_name(me, new_name)
+    bot.send_message(message.chat.id, "✅ Имя питомца изменено на " + new_name)
+
+def show_pet_skins(message):
+    me = message.from_user.id
+    pet = get_pet(me)
+    if not pet:
+        bot.send_message(message.chat.id, "У тебя нет питомца. Купи: винди заведи питомца")
+        return
+    current_type, _ = pet
+    skins = get_pet_skins(me)
+    if not skins:
+        bot.send_message(message.chat.id, "У тебя нет скинов.")
+        return
+    if len(skins) == 1:
+        info = PETS.get(skins[0])
+        bot.send_message(message.chat.id, info["emoji"] + " " + info["name"] + " (сейчас)")
+        return
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    buttons = []
+    for s in skins:
+        info = PETS.get(s)
+        label = info["emoji"] + " " + info["name"]
+        if s == current_type:
+            label += " (сейчас)"
+        buttons.append(types.InlineKeyboardButton(label, callback_data="skin_" + s))
+    kb.add(*buttons)
+    bot.send_message(message.chat.id, "Выбери скин:", reply_markup=kb)
+
 # ========== ДЕЙСТВИЯ ==========
 
 def kiss(message, target_id):
@@ -579,10 +749,8 @@ def kiss(message, target_id):
         bot.reply_to(message, "Себя целовать нельзя"); return
     a = get_user_tag(me); b = get_user_tag(target_id)
     phrases = [
-        a + " страстно поцеловал " + b + " 💋",
-        a + " нежно поцеловал " + b + " 💞",
-        a + " поцеловал " + b + " в щёчку 😘",
-        a + " поцеловал " + b + " в губы 💋",
+        a + " страстно поцеловал " + b + " 💋", a + " нежно поцеловал " + b + " 💞",
+        a + " поцеловал " + b + " в щёчку 😘", a + " поцеловал " + b + " в губы 💋",
         a + " чмокнул " + b + " 😚",
     ]
     bot.send_message(message.chat.id, random.choice(phrases))
@@ -593,14 +761,10 @@ def hug(message, target_id):
         bot.reply_to(message, "Себя обнять нельзя"); return
     a = get_user_tag(me); b = get_user_tag(target_id)
     phrases = [
-        a + " нежно обнял " + b + " 💞",
-        a + " крепко обнял " + b + " 🤗",
-        a + " тепло обнял " + b + " 💖",
-        a + " обнял " + b + " от всей души ❤️",
-        a + " крепко-крепко обнял " + b + " 🫂",
-        a + " мило обнял " + b + " 💕",
-        a + " по-дружески обнял " + b + " 🤝",
-        a + " сжал " + b + " в объятиях 💗",
+        a + " нежно обнял " + b + " 💞", a + " крепко обнял " + b + " 🤗",
+        a + " тепло обнял " + b + " 💖", a + " обнял " + b + " от всей души ❤️",
+        a + " крепко-крепко обнял " + b + " 🫂", a + " мило обнял " + b + " 💕",
+        a + " по-дружески обнял " + b + " 🤝", a + " сжал " + b + " в объятиях 💗",
     ]
     bot.send_message(message.chat.id, random.choice(phrases))
 
@@ -835,26 +999,19 @@ def offer_fire(message, target_id):
     if me == target_id:
         bot.send_message(message.chat.id, "Нельзя зажечь огонёк с самим собой")
         return
-
     existing = get_duo_fire_with(me, target_id)
     if existing:
         partner = get_user_tag(target_id)
         bot.send_message(message.chat.id, "У вас уже есть огонёк с " + partner)
         return
-
-    my_count = count_duo_fires(me)
-    if my_count >= 3:
+    if count_duo_fires(me) >= 3:
         bot.send_message(message.chat.id, "У тебя уже 3 огонька")
         return
-
-    their_count = count_duo_fires(target_id)
-    if their_count >= 3:
+    if count_duo_fires(target_id) >= 3:
         partner = get_user_tag(target_id)
         bot.send_message(message.chat.id, "У " + partner + " уже 3 огонька")
         return
-
-    a = get_user_tag(me)
-    b = get_user_tag(target_id)
+    a = get_user_tag(me); b = get_user_tag(target_id)
     kb = types.InlineKeyboardMarkup()
     kb.add(
         types.InlineKeyboardButton("Принять", callback_data="fire_yes_" + str(me) + "_" + str(target_id)),
@@ -870,38 +1027,25 @@ def extend_fire(message):
     if not fires:
         bot.send_message(message.chat.id, "У тебя нет огонька. Напиши: винди огонёк @user")
         return
-
     now = int(time.time())
     today_start = int(datetime.datetime.utcnow().replace(hour=0, minute=1, second=0, microsecond=0).timestamp())
-
-    # Собираем список серых огоньков (тех, где партнёр уже написал, но мы ещё нет — или наоборот)
     grey_partners = []
     all_green = True
     just_activated = []
-
     for f in fires:
         uid1, uid2, fire, is_grey, last1, last2, last_ext = f
         if me == uid1:
-            my_last = last1
-            other_last = last2
+            my_last = last1; other_last = last2
         else:
-            my_last = last2
-            other_last = last1
-
+            my_last = last2; other_last = last1
         if my_last >= today_start and other_last >= today_start:
-            # Оба написали сегодня — огонёк зажжён
             continue
-
         if my_last >= today_start:
-            # Я написал, партнёр нет — ждём
             partner_id = uid2 if me == uid1 else uid1
             grey_partners.append(partner_id)
             all_green = False
             continue
-
-        # Я не писал
         if other_last >= today_start:
-            # Партнёр написал — зажигаем +1
             new_fire = fire + 1
             if me == uid1:
                 new_last1, new_last2 = now, other_last
@@ -911,7 +1055,6 @@ def extend_fire(message):
             partner_id = uid2 if me == uid1 else uid1
             just_activated.append((partner_id, new_fire))
         else:
-            # Никто не писал — я отмечаюсь
             if me == uid1:
                 new_last1, new_last2 = now, other_last
             else:
@@ -920,20 +1063,15 @@ def extend_fire(message):
             partner_id = uid2 if me == uid1 else uid1
             grey_partners.append(partner_id)
             all_green = False
-
-    # Сообщения
     for partner_id, new_fire in just_activated:
-        a = get_user_tag(me)
-        b = get_user_tag(partner_id)
+        a = get_user_tag(me); b = get_user_tag(partner_id)
         bot.send_message(message.chat.id, "🔥 Огонёк зажжён!\n\n" + a + " + " + b + "\nЧисло: " + str(new_fire))
-
     if all_green and not just_activated and not grey_partners:
         if len(fires) == 1:
             bot.send_message(message.chat.id, "🔥 Огонёк уже горит")
         else:
             bot.send_message(message.chat.id, "🔥 Огоньки уже горят")
         return
-
     if grey_partners:
         partners_str = ", ".join([get_user_tag(p) for p in grey_partners])
         bot.send_message(message.chat.id, "⏳ Ждём " + partners_str)
@@ -944,14 +1082,12 @@ def my_fire(message):
     if not fires:
         bot.send_message(message.chat.id, "У тебя нет огонька. Напиши: винди огонёк @user")
         return
-
     if len(fires) == 1:
         uid1, uid2, fire, is_grey, last1, last2, last_ext = fires[0]
         partner_id = uid2 if me == uid1 else uid1
         partner = get_user_tag(partner_id)
         status = "серый ⚫" if is_grey else "зажжён 🔴"
-        t = "🔥 Твой огонёк:\n\n"
-        t += partner + " — " + status + " (" + str(fire) + ")"
+        t = "🔥 Твой огонёк:\n\n" + partner + " — " + status + " (" + str(fire) + ")"
         bot.send_message(message.chat.id, t)
     else:
         t = "🔥 Твои огоньки:\n\n"
@@ -970,8 +1106,7 @@ def fire_top(message):
         return
     t = "Топ огоньков:\n\n"
     for i, (u1, u2, fire) in enumerate(rows, 1):
-        a = get_user_tag(u1)
-        b = get_user_tag(u2)
+        a = get_user_tag(u1); b = get_user_tag(u2)
         t += "Огонёк 🔥 " + a + " и " + b + " составляет " + str(fire) + "\n"
     bot.send_message(message.chat.id, t)
 
@@ -997,7 +1132,7 @@ def echo(message):
     text = message.text.strip()
     low = text.lower()
 
-    # Админ-панель
+    # Админ-панель (личка)
     if message.chat.type == "private" and message.from_user.id == ADMIN_ID:
         if ADMIN_ID in pending_admin:
             target_uid, target_fire = pending_admin[ADMIN_ID]
@@ -1007,15 +1142,27 @@ def echo(message):
                     tag = get_user_tag(target_uid)
                     bot.send_message(message.chat.id, "❌ У " + tag + " нет огонька.")
                 else:
-                    # Выдаём первому огоньку
                     uid1, uid2, fire, is_grey, last1, last2, last_ext = fires[0]
                     update_duo_fire(uid1, uid2, target_fire, 0, last1, last2, last_ext)
-                    a = get_user_tag(uid1)
-                    b = get_user_tag(uid2)
+                    a = get_user_tag(uid1); b = get_user_tag(uid2)
                     bot.send_message(message.chat.id, "✅ Огонёк " + str(target_fire) + " выдан:\n" + a + " + " + b)
             else:
                 bot.send_message(message.chat.id, "❌ Неверный код")
             del pending_admin[ADMIN_ID]
+            return
+
+        if ADMIN_ID in pending_coins:
+            target_uid, target_coins = pending_coins[ADMIN_ID]
+            if text == SECRET_CODE:
+                if target_uid is None:
+                    bot.send_message(message.chat.id, "❌ Юзер не найден")
+                else:
+                    set_coins(target_uid, target_coins)
+                    tag = get_user_tag(target_uid)
+                    bot.send_message(message.chat.id, "✅ " + str(target_coins) + " монет выдано " + tag)
+            else:
+                bot.send_message(message.chat.id, "❌ Неверный код")
+            del pending_coins[ADMIN_ID]
             return
 
         if low.startswith("винди огонёк"):
@@ -1035,7 +1182,24 @@ def echo(message):
                 bot.send_message(message.chat.id, "Введите секретный код:")
                 return
 
-    # Игра «Угадай число» — обработка reply
+        if low.startswith("винди монеты"):
+            parts = text.split()
+            if len(parts) >= 4:
+                tag = parts[2]
+                try:
+                    coins_num = int(parts[3])
+                except:
+                    bot.send_message(message.chat.id, "❌ Число неверное")
+                    return
+                target_uid = get_uid_by_tag(tag)
+                if not target_uid:
+                    bot.send_message(message.chat.id, "❌ Юзер не найден")
+                    return
+                pending_coins[ADMIN_ID] = (target_uid, coins_num)
+                bot.send_message(message.chat.id, "Введите секретный код:")
+                return
+
+    # Игра «Угадай число»
     if message.reply_to_message and message.reply_to_message.from_user:
         if message.reply_to_message.from_user.id == bot.get_me().id:
             if message.from_user.id in games:
@@ -1092,6 +1256,24 @@ def echo(message):
         show_balance_top(message)
         return
 
+    # Питомец
+    if low == "винди заведи питомца":
+        buy_pet(message)
+        return
+    if low == "мой питомец":
+        show_pet(message)
+        return
+    if low.startswith("изменить имя питомца"):
+        new_name = text[len("изменить имя питомца"):].strip()
+        if not new_name:
+            bot.send_message(message.chat.id, "Напиши: изменить имя питомца [имя]")
+            return
+        change_pet_name(message, new_name)
+        return
+    if low == "винди скины":
+        show_pet_skins(message)
+        return
+
     # Рандом
     if low == "винди орел или решка" or low == "винди орёл или решка":
         coin_flip(message)
@@ -1103,7 +1285,6 @@ def echo(message):
     # Действия
     if message.reply_to_message:
         target_id = message.reply_to_message.from_user.id
-
         if low == "обнять": hug(message, target_id); return
         if low == "поцеловать": kiss(message, target_id); return
         if low == "ударить": hit(message, target_id); return
@@ -1162,13 +1343,26 @@ def cb(call):
     parts = call.data.split("_")
     action = parts[0]
 
+    if action == "skin":
+        pet_type = parts[1]
+        me = call.from_user.id
+        pet = get_pet(me)
+        if not pet:
+            return
+        set_pet_type(me, pet_type)
+        info = PETS.get(pet_type)
+        if info:
+            bot.edit_message_text(
+                "✅ Скин изменён на " + info["emoji"] + " " + info["name"],
+                call.message.chat.id, call.message.message_id
+            )
+        return
+
     if action == "divorce":
         decision = parts[1]
-        uid1 = int(parts[2])
-        uid2 = int(parts[3])
+        uid1 = int(parts[2]); uid2 = int(parts[3])
         if call.from_user.id not in [uid1, uid2]:
             return
-
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("SELECT agree1, agree2 FROM divorce_votes WHERE uid1 = %s AND uid2 = %s", (uid1, uid2))
@@ -1176,20 +1370,16 @@ def cb(call):
         if not row:
             cur.close(); conn.close(); return
         agree1, agree2 = row
-
         if decision == "yes":
             if call.from_user.id == uid1: agree1 = 1
             else: agree2 = 1
         else:
             if call.from_user.id == uid1: agree1 = -1
             else: agree2 = -1
-
         cur.execute("UPDATE divorce_votes SET agree1 = %s, agree2 = %s WHERE uid1 = %s AND uid2 = %s",
                     (agree1, agree2, uid1, uid2))
         conn.commit(); cur.close(); conn.close()
-
         a = get_user_tag(uid1); b = get_user_tag(uid2)
-
         if agree1 == 1 and agree2 == 1:
             delete_marriage(uid1, uid2)
             bot.edit_message_text("Развод! " + a + " и " + b + " больше не вместе", call.message.chat.id, call.message.message_id)
@@ -1200,11 +1390,9 @@ def cb(call):
 
     if action == "ext":
         decision = parts[1]
-        uid1 = int(parts[2])
-        uid2 = int(parts[3])
+        uid1 = int(parts[2]); uid2 = int(parts[3])
         if call.from_user.id not in [uid1, uid2]:
             return
-
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("SELECT agree1, agree2 FROM duo_break WHERE uid1 = %s AND uid2 = %s", (uid1, uid2))
@@ -1212,20 +1400,16 @@ def cb(call):
         if not row:
             cur.close(); conn.close(); return
         agree1, agree2 = row
-
         if decision == "yes":
             if call.from_user.id == uid1: agree1 = 1
             else: agree2 = 1
         else:
             if call.from_user.id == uid1: agree1 = -1
             else: agree2 = -1
-
         cur.execute("UPDATE duo_break SET agree1 = %s, agree2 = %s WHERE uid1 = %s AND uid2 = %s",
                     (agree1, agree2, uid1, uid2))
         conn.commit(); cur.close(); conn.close()
-
         a = get_user_tag(uid1); b = get_user_tag(uid2)
-
         if agree1 == 1 and agree2 == 1:
             delete_duo_fire(uid1, uid2)
             bot.edit_message_text("Огонёк между " + a + " и " + b + " был потушен", call.message.chat.id, call.message.message_id)
@@ -1236,8 +1420,7 @@ def cb(call):
 
     if action == "fire":
         decision = parts[1]
-        uid1 = int(parts[2])
-        uid2 = int(parts[3])
+        uid1 = int(parts[2]); uid2 = int(parts[3])
         if call.from_user.id != uid2:
             return
         a = get_user_tag(uid1); b = get_user_tag(uid2)
@@ -1250,8 +1433,7 @@ def cb(call):
         return
 
     if action in ("accept", "reject"):
-        uid1 = int(parts[1])
-        uid2 = int(parts[2])
+        uid1 = int(parts[1]); uid2 = int(parts[2])
         if call.from_user.id != uid2:
             return
         if action == "accept":
