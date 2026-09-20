@@ -233,11 +233,10 @@ def time_together(seconds):
 @bot.message_handler(commands=["start"])
 def start(message):
     save_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-    bot.send_message(message.chat.id, "Привет! Я бот Винди.")
-
-@bot.message_handler(commands=["help"])
-def help_cmd(message):
-    bot.send_message(message.chat.id, "винди кто гей / винди браки / шейкер / ш топ / винди огонёк @user / огонёк / топ огоньков / обнять / поцеловать / лавю / ударить и др.")
+    text = "Я — Винди.\n\n"
+    text += "Со мной ты можешь растить огонёк, обниматься, играть и многое другое.\n\n"
+    text += "Напиши «винди огонёк @user», чтобы начать."
+    bot.send_message(message.chat.id, text)
 
 def who_gay(message):
     all_u = get_all_users()
@@ -622,10 +621,10 @@ def offer_fire(message, target_id):
         bot.reply_to(message, "Нельзя зажечь огонёк с самим собой")
         return
     if get_duo_fire(me):
-        bot.send_message(message.chat.id, "Огонёк зажжён 🔥")
+        bot.send_message(message.chat.id, "Огонёк зажжён 🔴")
         return
     if get_duo_fire(target_id):
-        bot.send_message(message.chat.id, "У этого пользователя огонёк зажжён 🔥")
+        bot.send_message(message.chat.id, "У этого пользователя огонёк зажжён 🔴")
         return
 
     a = get_user_tag(me)
@@ -660,11 +659,11 @@ def extend_fire(message):
 
     if my_last >= today_start and other_last >= today_start:
         phrases = [
-            "Огонёк уже зажжён 🔥",
-            "Огонёк горит вовсю 🔥 Приходи завтра",
-            "Огонёк уже пылает 🔥 Ждём завтра",
-            "Огонёк зажжён 🔥 Не забывай про него завтра",
-            "Огонёк ярко горит 🔥 Возвращайся завтра",
+            "Огонёк уже зажжён 🔴",
+            "Огонёк горит вовсю 🔴 Приходи завтра",
+            "Огонёк уже пылает 🔴 Ждём завтра",
+            "Огонёк зажжён 🔴 Не забывай про него завтра",
+            "Огонёк ярко горит 🔴 Возвращайся завтра",
         ]
         bot.send_message(message.chat.id, random.choice(phrases))
         return
@@ -688,7 +687,7 @@ def extend_fire(message):
         update_duo_fire(uid1, uid2, fire, is_grey, new_last1, new_last2, now)
         a = get_user_tag(uid1)
         b = get_user_tag(uid2)
-        text = "🔥 Огонёк зажжён!\n\n" + a + " + " + b + "\nЧисло: " + str(fire) + "\n\nНе забывайте завтра 🔥"
+        text = "🔴 Огонёк зажжён!\n\n" + a + " + " + b + "\nЧисло: " + str(fire) + "\n\nНе забывайте завтра 🔥"
         bot.send_message(message.chat.id, text)
     else:
         if me == uid1:
@@ -697,6 +696,32 @@ def extend_fire(message):
             new_last1, new_last2 = other_last, now
         update_duo_fire(uid1, uid2, fire, is_grey, new_last1, new_last2, last_ext)
         bot.send_message(message.chat.id, "🔥 Ты отметился. Ждём " + partner)
+
+def my_fire(message):
+    me = message.from_user.id
+    row = get_duo_fire(me)
+    if not row:
+        bot.send_message(message.chat.id, "У тебя нет огонька. Напиши: винди огонёк @user")
+        return
+
+    uid1, uid2, fire, is_grey, last1, last2, last_ext = row
+    partner_id = uid2 if me == uid1 else uid1
+    partner = get_user_tag(partner_id)
+
+    if is_grey:
+        text = "⚫ Твой огонёк\n\n"
+        text += "Партнёр: " + partner + "\n"
+        text += "Число: " + str(fire) + "\n"
+        text += "Статус: серый\n\n"
+        text += "Напиши «огонёк», чтобы зажечь снова"
+    else:
+        text = "🔴 Твой огонёк\n\n"
+        text += "Партнёр: " + partner + "\n"
+        text += "Число: " + str(fire) + "\n"
+        text += "Статус: зажжён\n\n"
+        text += "Не забывай про него завтра 🔥"
+
+    bot.send_message(message.chat.id, text)
 
 def fire_top(message):
     rows = get_duo_top()
@@ -803,6 +828,9 @@ def echo(message):
 
     if low == "огонёк":
         extend_fire(message)
+        return
+    if low == "мой огонёк":
+        my_fire(message)
         return
     if low == "топ огоньков":
         fire_top(message)
