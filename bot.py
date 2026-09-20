@@ -999,7 +999,6 @@ def cb(call):
     parts = call.data.split("_")
     action = parts[0]
 
-    # РАЗВОД
     if action == "divorce":
         decision = parts[1]
         uid1 = int(parts[2])
@@ -1044,7 +1043,6 @@ def cb(call):
             bot.edit_message_text("Брак остался", call.message.chat.id, call.message.message_id)
         return
 
-    # ПОТУШЕНИЕ ОГОНЬКА
     if action == "ext":
         decision = parts[1]
         uid1 = int(parts[2])
@@ -1089,7 +1087,6 @@ def cb(call):
             bot.edit_message_text("Огонёк остался", call.message.chat.id, call.message.message_id)
         return
 
-    # ОГОНЁК СОЗДАНИЕ
     if action == "fire":
         decision = parts[1]
         uid1 = int(parts[2])
@@ -1106,7 +1103,6 @@ def cb(call):
             bot.edit_message_text(b + " отказал(а) " + a + " 💔", call.message.chat.id, call.message.message_id)
         return
 
-    # БРАК
     if action in ("accept", "reject"):
         uid1 = int(parts[1])
         uid2 = int(parts[2])
