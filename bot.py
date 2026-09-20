@@ -16,6 +16,7 @@ SECRET_CODE = "v1ndyfire"
 bot = telebot.TeleBot(TOKEN)
 pending_admin = {}
 pending_coins = {}
+pending_pet = {}
 games = {}
 
 DOG_ART = """\\
@@ -27,12 +28,14 @@ DOG_ART = """\\
 ┈┈┃┊╰━━━┳━━━╯
 ┈┈┃┊┊┊┊╭╯"""
 
-CAT_ART = """\\
-─────────────────────────
-───────▄▀▄─────▄▀▄───────
-──────▄█░░▀▀▀▀▀░░█▄──────
-──▄▄──█░░░░░░░░░░░█──▄▄──
-─█▄▄█─█░░▀░░┬░░▀░░█─█▄▄█─"""
+CAT_ART = """╭━╮┈╭━╮┈┈┈┈┈╭━╮
+┃╭╯┈┃┊┗━━━━━┛┊┃
+┃╰┳┳┫┏━▅╮┊╭━▅┓┃
+┃┫┫┫┫┃┊▉┃┊┃┊▉┃┃
+┃┫┫┫╋╰━━┛▅┗━━╯╋
+┃┫┫┫╋┊┊┊┣┻┫┊┊┊╋
+┃┊┊┊╰┈┈┈┈┈┈┈┳━╯
+┃┣┳┳━━┫┣━━┳╭╯"""
 
 SNAKE_ART = """\\
 ──────────────────────
@@ -46,6 +49,12 @@ PETS = {
     "dog": {"name": "Собака", "emoji": "🐶", "art": DOG_ART},
     "cat": {"name": "Кошка", "emoji": "🐱", "art": CAT_ART},
     "snake": {"name": "Змея", "emoji": "🐍", "art": SNAKE_ART},
+}
+
+NAME_TO_TYPE = {
+    "собака": "dog", "собаку": "dog", "пёс": "dog", "пес": "dog", "dog": "dog",
+    "кошка": "cat", "кошку": "cat", "кот": "cat", "кота": "cat", "cat": "cat",
+    "змея": "snake", "змею": "snake", "snake": "snake",
 }
 
 def get_conn():
@@ -273,8 +282,8 @@ def create_pet(uid, pet_type):
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO pets (uid, pet_type, pet_name) VALUES (%s, %s, NULL)
-        ON CONFLICT (uid) DO NOTHING
-    """, (uid, pet_type))
+        ON CONFLICT (uid) DO UPDATE SET pet_type = %s
+    """, (uid, pet_type, pet_type))
     cur.execute("""
         INSERT INTO pet_skins (uid, pet_type) VALUES (%s, %s)
         ON CONFLICT DO NOTHING
@@ -699,7 +708,7 @@ def show_pet(message):
     if not info:
         return
     t = info["emoji"] + " " + info["name"] + "\n\n"
-    t += info["art"] + "\n\n"
+    t += info["art"] + "\n"
     if pet_name:
         t += "Имя: " + pet_name
     else:
@@ -1165,6 +1174,21 @@ def echo(message):
             del pending_coins[ADMIN_ID]
             return
 
+        if ADMIN_ID in pending_pet:
+            target_uid, pet_type = pending_pet[ADMIN_ID]
+            if text == SECRET_CODE:
+                if target_uid is None:
+                    bot.send_message(message.chat.id, "❌ Юзер не найден")
+                else:
+                    create_pet(target_uid, pet_type)
+                    info = PETS[pet_type]
+                    tag = get_user_tag(target_uid)
+                    bot.send_message(message.chat.id, "✅ " + info["emoji"] + " " + info["name"] + " выдан " + tag)
+            else:
+                bot.send_message(message.chat.id, "❌ Неверный код")
+            del pending_pet[ADMIN_ID]
+            return
+
         if low.startswith("винди огонёк"):
             parts = text.split()
             if len(parts) >= 4:
@@ -1196,6 +1220,23 @@ def echo(message):
                     bot.send_message(message.chat.id, "❌ Юзер не найден")
                     return
                 pending_coins[ADMIN_ID] = (target_uid, coins_num)
+                bot.send_message(message.chat.id, "Введите секретный код:")
+                return
+
+        if low.startswith("винди питомец"):
+            parts = text.split()
+            if len(parts) >= 4:
+                tag = parts[2]
+                pet_name = parts[3].lower()
+                pet_type = NAME_TO_TYPE.get(pet_name)
+                if not pet_type:
+                    bot.send_message(message.chat.id, "❌ Питомец не найден. Доступно: собака, кошка, змея")
+                    return
+                target_uid = get_uid_by_tag(tag)
+                if not target_uid:
+                    bot.send_message(message.chat.id, "❌ Юзер не найден")
+                    return
+                pending_pet[ADMIN_ID] = (target_uid, pet_type)
                 bot.send_message(message.chat.id, "Введите секретный код:")
                 return
 
