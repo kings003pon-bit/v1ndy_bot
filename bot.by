@@ -1,0 +1,201 @@
+import telebot
+import random
+import time
+from telebot import types
+
+TOKEN = "8844916139:AAEj0P5zwsLnLDL8puRzHaRXf2vXz6aA8Jg"
+bot = telebot.TeleBot(TOKEN)
+
+users = {}
+marriages = {}
+shaker = {}
+
+def get_user(uid, name="друг", tag=None):
+    if uid not in users:
+        users[uid] = {"name": name, "tag": tag}
+    else:
+        if tag:
+            users[uid]["tag"] = tag
+        if name:
+            users[uid]["name"] = name
+    return users[uid]
+
+def mention(uid):
+    u = users.get(uid)
+    if u and u.get("tag"):
+        return "@" + u["tag"]
+    return "пользователь"
+
+def time_together(seconds):
+    days = int(seconds // 86400)
+    hours = int((seconds % 86400) // 3600)
+    minutes = int((seconds % 3600) // 60)
+    if days > 0:
+        return str(days) + " дн. " + str(hours) + " ч."
+    elif hours > 0:
+        return str(hours) + " ч. " + str(minutes) + " мин."
+    else:
+        return str(minutes) + " мин."
+
+@bot.message_handler(commands=["start"])
+def start(message):
+    get_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    bot.send_message(message.chat.id, "Привет! Я бот Винди.")
+
+@bot.message_handler(commands=["help"])
+def help_cmd(message):
+    bot.send_message(message.chat.id, "винди кто гей / винди браки / шейкер / ш топ")
+
+def who_gay(message):
+    all_u = [u for u in users.values() if u.get("tag")]
+    if not all_u:
+        bot.send_message(message.chat.id, "Никто ещё не писал в чате.")
+        return
+    c = random.choice(all_u)
+    p = ["Я думаю гей - @" + c["tag"], "Радар: @" + c["tag"], "100% гей - @" + c["tag"]]
+    bot.send_message(message.chat.id, random.choice(p))
+
+def marry(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Нельзя жениться на себе")
+        return
+    if me not in users:
+        bot.reply_to(message, "Сначала напиши что-нибудь в чат")
+        return
+    if target_id not in users:
+        bot.reply_to(message, "Этот человек ещё не писал в чат")
+        return
+    pair = frozenset([me, target_id])
+    if pair in marriages:
+        bot.reply_to(message, "Вы уже женаты! Браков: " + str(marriages[pair]["count"]))
+        return
+    a = mention(me)
+    b = mention(target_id)
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton("Принять", callback_data="accept_" + str(me) + "_" + str(target_id)),
+        types.InlineKeyboardButton("Отказаться", callback_data="reject_" + str(me) + "_" + str(target_id)),
+    )
+    text = a + " делает предложение " + b + "!\n\n" + b + ", ты согласен(на)?"
+    bot.send_message(message.chat.id, text, reply_markup=kb)
+
+def kiss(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Себя целовать нельзя")
+        return
+    a = mention(me)
+    b = mention(target_id)
+    phrases = [
+        a + " страстно поцеловал " + b,
+        a + " нежно поцеловал " + b,
+        a + " поцеловал " + b + " в щёчку",
+        a + " поцеловал " + b + " в губы",
+        a + " чмокнул " + b,
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+
+def show_marriages(message):
+    if not marriages:
+        bot.send_message(message.chat.id, "Пока никто не женился.")
+        return
+    now = time.time()
+    s = sorted(marriages.items(), key=lambda x: x[1]["count"], reverse=True)[:20]
+    t = "Список браков:\n\n"
+    for i, (pair, data) in enumerate(s, 1):
+        ids = list(pair)
+        a = mention(ids[0])
+        b = mention(ids[1])
+        together = time_together(now - data["since"])
+        t += str(i) + ". " + a + " + " + b + "\n"
+        t += "   Браков: " + str(data["count"]) + ", вместе: " + together + "\n\n"
+    bot.send_message(message.chat.id, t)
+
+def play_shaker(message):
+    me = message.from_user.id
+    get_user(me, message.from_user.first_name, message.from_user.username)
+    now = time.time()
+    if me in shaker:
+        last = shaker[me]["last"]
+        if now - last < 1800:
+            remaining = int(1800 - (now - last))
+            m = remaining // 60
+            s = remaining % 60
+            bot.reply_to(message, "Жди " + str(m) + "м " + str(s) + "с")
+            return
+    num = random.randint(1, 9)
+    if me not in shaker:
+        shaker[me] = {"score": 0, "last": 0}
+    shaker[me]["score"] += num
+    shaker[me]["last"] = now
+    name = message.from_user.first_name
+    bot.send_message(message.chat.id, "Кинул шейкер: " + str(num) + "\nВсего: " + str(shaker[me]["score"]))
+
+def shaker_top(message):
+    if not shaker:
+        bot.send_message(message.chat.id, "Пока никто не играл.")
+        return
+    s = sorted(shaker.items(), key=lambda x: x[1]["score"], reverse=True)[:20]
+    t = "Топ Шейкера:\n\n"
+    for i, (uid, data) in enumerate(s, 1):
+        t += str(i) + ". " + mention(uid) + " - " + str(data["score"]) + "\n"
+    bot.send_message(message.chat.id, t)
+
+@bot.message_handler(content_types=["text"])
+def echo(message):
+    if message.from_user:
+        get_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    if message.reply_to_message and message.reply_to_message.from_user:
+        r = message.reply_to_message.from_user
+        get_user(r.id, r.first_name, r.username)
+    text = message.text.lower().strip()
+    if text == "шейкер":
+        play_shaker(message)
+        return
+    if text == "ш топ":
+        shaker_top(message)
+        return
+    if "винди" in text and "брак" in text:
+        show_marriages(message)
+        return
+    if "винди" in text and "гей" in text:
+        who_gay(message)
+        return
+    if "ало" in text:
+        responses = ["Ало", "Ало, чё надо?", "Алё-алё", "Ало, я тут", "Ало, не слышу"]
+        bot.send_message(message.chat.id, random.choice(responses))
+        return
+    if message.reply_to_message:
+        target_id = message.reply_to_message.from_user.id
+        if "замуж" in text or "женись" in text or "женить" in text:
+            marry(message, target_id)
+        elif "поцеловать" in text or "поцелуй" in text or "чмок" in text:
+            kiss(message, target_id)
+
+@bot.callback_query_handler(func=lambda call: True)
+def cb(call):
+    try:
+        bot.answer_callback_query(call.id)
+    except:
+        pass
+    parts = call.data.split("_")
+    action = parts[0]
+    uid1 = int(parts[1])
+    uid2 = int(parts[2])
+    if call.from_user.id != uid2:
+        return
+    if action == "accept":
+        pair = frozenset([uid1, uid2])
+        if pair in marriages:
+            marriages[pair]["count"] += 1
+        else:
+            marriages[pair] = {"count": 1, "since": time.time()}
+        a = mention(uid1)
+        b = mention(uid2)
+        bot.edit_message_text("Женаты! " + a + " + " + b, call.message.chat.id, call.message.message_id)
+    elif action == "reject":
+        bot.edit_message_text("Отказ", call.message.chat.id, call.message.message_id)
+
+print("Бот запущен!")
+bot.polling(none_stop=True)
