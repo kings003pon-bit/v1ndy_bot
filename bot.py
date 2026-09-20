@@ -67,6 +67,15 @@ def init_db():
         )
     """)
     cur.execute("""
+        CREATE TABLE IF NOT EXISTS divorce_votes (
+            uid1 BIGINT,
+            uid2 BIGINT,
+            agree1 INTEGER DEFAULT 0,
+            agree2 INTEGER DEFAULT 0,
+            PRIMARY KEY (uid1, uid2)
+        )
+    """)
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS fire_system (
             id INTEGER PRIMARY KEY,
             last_expire BIGINT DEFAULT 0
@@ -161,7 +170,7 @@ def update_duo_fire(uid1, uid2, fire, is_grey, last_uid1, last_uid2, last_extend
     cur.close()
     conn.close()
 
-def break_duo_fire(uid1, uid2):
+def delete_duo_fire(uid1, uid2):
     a, b = sorted([uid1, uid2])
     conn = get_conn()
     cur = conn.cursor()
@@ -218,7 +227,49 @@ def background_fire_check():
             print("Fire check error:", e)
         time.sleep(60)
 
-# ========== РАЗВЛЕЧЕНИЯ ==========
+# ========== БРАК ==========
+
+def get_marriage(uid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT uid1, uid2, count, since FROM marriages WHERE uid1 = %s OR uid2 = %s", (uid, uid))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+def add_marriage(uid1, uid2):
+    a, b = sorted([uid1, uid2])
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT count FROM marriages WHERE uid1 = %s AND uid2 = %s", (a, b))
+    row = cur.fetchone()
+    if row:
+        cur.execute("UPDATE marriages SET count = count + 1 WHERE uid1 = %s AND uid2 = %s", (a, b))
+    else:
+        cur.execute("INSERT INTO marriages (uid1, uid2, count, since) VALUES (%s, %s, 1, %s)", (a, b, int(time.time())))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def delete_marriage(uid1, uid2):
+    a, b = sorted([uid1, uid2])
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM marriages WHERE uid1 = %s AND uid2 = %s", (a, b))
+    cur.execute("DELETE FROM divorce_votes WHERE uid1 = %s AND uid2 = %s", (a, b))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_marriages():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT uid1, uid2, count, since FROM marriages ORDER BY count DESC LIMIT 20")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
 def time_together(seconds):
     days = int(seconds // 86400)
@@ -230,36 +281,81 @@ def time_together(seconds):
         return str(hours) + " ч. " + str(minutes) + " мин."
     return str(minutes) + " мин."
 
-@bot.message_handler(commands=["start"])
-def start(message):
-    save_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-    text = "Я — Винди.\n\n"
-    text += "Со мной ты можешь растить огонёк, обниматься, играть и многое другое.\n\n"
-    text += "Напиши «винди огонёк @user», чтобы начать."
-    bot.send_message(message.chat.id, text)
-
-def who_gay(message):
-    all_u = get_all_users()
-    if not all_u:
-        bot.send_message(message.chat.id, "Никто ещё не писал в чате.")
+def show_marriages(message):
+    rows = get_marriages()
+    if not rows:
+        bot.send_message(message.chat.id, "Пока никто не женился.")
         return
-    uid, tag = random.choice(all_u)
-    p = ["Я думаю гей - @" + tag, "Радар: @" + tag, "100% гей - @" + tag]
-    bot.send_message(message.chat.id, random.choice(p))
+    now = time.time()
+    t = "Список браков:\n\n"
+    for i, (u1, u2, cnt, since) in enumerate(rows, 1):
+        a = get_user_tag(u1)
+        b = get_user_tag(u2)
+        together = time_together(now - since)
+        t += str(i) + ". " + a + " + " + b + "\n"
+        t += "   Браков: " + str(cnt) + ", вместе: " + together + "\n\n"
+    bot.send_message(message.chat.id, t)
 
-def marry(message, target_id):
+# ========== РАЗВОД ==========
+
+def divorce_request(message):
     me = message.from_user.id
-    if me == target_id:
-        bot.reply_to(message, "Нельзя жениться на себе")
+    row = get_marriage(me)
+    if not row:
+        bot.send_message(message.chat.id, "У тебя нет брака")
         return
-    a = get_user_tag(me)
-    b = get_user_tag(target_id)
+
+    uid1, uid2 = row[0], row[1]
+    a = get_user_tag(uid1)
+    b = get_user_tag(uid2)
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO divorce_votes (uid1, uid2, agree1, agree2) VALUES (%s, %s, 0, 0)
+        ON CONFLICT (uid1, uid2) DO UPDATE SET agree1 = 0, agree2 = 0
+    """, (uid1, uid2))
+    conn.commit()
+    cur.close()
+    conn.close()
+
     kb = types.InlineKeyboardMarkup()
     kb.add(
-        types.InlineKeyboardButton("Принять", callback_data="accept_" + str(me) + "_" + str(target_id)),
-        types.InlineKeyboardButton("Отказаться", callback_data="reject_" + str(me) + "_" + str(target_id)),
+        types.InlineKeyboardButton("Да", callback_data="divorce_yes_" + str(uid1) + "_" + str(uid2)),
+        types.InlineKeyboardButton("Нет", callback_data="divorce_no_" + str(uid1) + "_" + str(uid2)),
     )
-    text = a + " делает предложение " + b + "!\n\n" + b + ", ты согласен(на)?"
+    text = a + " и " + b + ", вы хотите разрушить брак?"
+    bot.send_message(message.chat.id, text, reply_markup=kb)
+
+# ========== ПОТУШЕНИЕ ОГОНЬКА ==========
+
+def extinguish_request(message):
+    me = message.from_user.id
+    row = get_duo_fire(me)
+    if not row:
+        bot.send_message(message.chat.id, "У тебя нет огонька")
+        return
+
+    uid1, uid2 = row[0], row[1]
+    a = get_user_tag(uid1)
+    b = get_user_tag(uid2)
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO duo_break (uid1, uid2, agree1, agree2) VALUES (%s, %s, 0, 0)
+        ON CONFLICT (uid1, uid2) DO UPDATE SET agree1 = 0, agree2 = 0
+    """, (uid1, uid2))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton("Да", callback_data="ext_yes_" + str(uid1) + "_" + str(uid2)),
+        types.InlineKeyboardButton("Нет", callback_data="ext_no_" + str(uid1) + "_" + str(uid2)),
+    )
+    text = a + " и " + b + ", вы хотите потушить огонёк?"
     bot.send_message(message.chat.id, text, reply_markup=kb)
 
 # ========== РАНДОМ ==========
@@ -271,6 +367,16 @@ def coin_flip(message):
 def yes_no(message):
     result = random.choice(["✅ Да!", "❌ Нет!"])
     bot.send_message(message.chat.id, result)
+
+# ========== РЕГИСТРАЦИЯ КОМАНД ==========
+
+@bot.message_handler(commands=["start"])
+def start(message):
+    save_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    text = "Я — Винди.\n\n"
+    text += "Со мной ты можешь растить огонёк, обниматься, играть и многое другое.\n\n"
+    text += "Напиши «винди огонёк @user», чтобы начать."
+    bot.send_message(message.chat.id, text)
 
 # ========== ДЕЙСТВИЯ ==========
 
@@ -528,45 +634,20 @@ def punish(message, target_id):
     ]
     bot.send_message(message.chat.id, random.choice(phrases))
 
-# ========== БРАК ==========
-
-def add_marriage(uid1, uid2):
-    a, b = sorted([uid1, uid2])
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT count FROM marriages WHERE uid1 = %s AND uid2 = %s", (a, b))
-    row = cur.fetchone()
-    if row:
-        cur.execute("UPDATE marriages SET count = count + 1 WHERE uid1 = %s AND uid2 = %s", (a, b))
-    else:
-        cur.execute("INSERT INTO marriages (uid1, uid2, count, since) VALUES (%s, %s, 1, %s)", (a, b, int(time.time())))
-    conn.commit()
-    cur.close()
-    conn.close()
-
-def get_marriages():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT uid1, uid2, count, since FROM marriages ORDER BY count DESC LIMIT 20")
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return rows
-
-def show_marriages(message):
-    rows = get_marriages()
-    if not rows:
-        bot.send_message(message.chat.id, "Пока никто не женился.")
+def marry(message, target_id):
+    me = message.from_user.id
+    if me == target_id:
+        bot.reply_to(message, "Нельзя жениться на себе")
         return
-    now = time.time()
-    t = "Список браков:\n\n"
-    for i, (u1, u2, cnt, since) in enumerate(rows, 1):
-        a = get_user_tag(u1)
-        b = get_user_tag(u2)
-        together = time_together(now - since)
-        t += str(i) + ". " + a + " + " + b + "\n"
-        t += "   Браков: " + str(cnt) + ", вместе: " + together + "\n\n"
-    bot.send_message(message.chat.id, t)
+    a = get_user_tag(me)
+    b = get_user_tag(target_id)
+    kb = types.InlineKeyboardMarkup()
+    kb.add(
+        types.InlineKeyboardButton("Принять", callback_data="accept_" + str(me) + "_" + str(target_id)),
+        types.InlineKeyboardButton("Отказаться", callback_data="reject_" + str(me) + "_" + str(target_id)),
+    )
+    text = a + " делает предложение " + b + "!\n\n" + b + ", ты согласен(на)?"
+    bot.send_message(message.chat.id, text, reply_markup=kb)
 
 # ========== ШЕЙКЕР ==========
 
@@ -745,34 +826,6 @@ def fire_top(message):
         t += "Огонёк 🔥 " + a + " и " + b + " составляет " + str(fire) + "\n"
     bot.send_message(message.chat.id, t)
 
-def break_fire_request(message):
-    me = message.from_user.id
-    row = get_duo_fire(me)
-    if not row:
-        bot.send_message(message.chat.id, "У тебя нет огонька.")
-        return
-    uid1, uid2 = row[0], row[1]
-    a = get_user_tag(uid1)
-    b = get_user_tag(uid2)
-
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO duo_break (uid1, uid2, agree1, agree2) VALUES (%s, %s, 0, 0)
-        ON CONFLICT (uid1, uid2) DO UPDATE SET agree1 = 0, agree2 = 0
-    """, (uid1, uid2))
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    kb = types.InlineKeyboardMarkup()
-    kb.add(
-        types.InlineKeyboardButton("Да", callback_data="break_yes_" + str(uid1) + "_" + str(uid2)),
-        types.InlineKeyboardButton("Нет", callback_data="break_no_" + str(uid1) + "_" + str(uid2)),
-    )
-    text = "🔥 " + a + " и " + b + ", вы действительно хотите разорвать огонёк?"
-    bot.send_message(message.chat.id, text, reply_markup=kb)
-
 # ========== ОБРАБОТЧИК ТЕКСТА ==========
 
 @bot.message_handler(content_types=["text"])
@@ -823,7 +876,14 @@ def echo(message):
                 bot.send_message(message.chat.id, "Введите секретный код:")
                 return
 
-    # Предложение огонька
+    # Команды
+    if low == "винди развод":
+        divorce_request(message)
+        return
+    if low == "винди потуши огонёк":
+        extinguish_request(message)
+        return
+
     if low.startswith("винди огонёк") and message.chat.type != "private":
         parts = text.split()
         if len(parts) >= 3:
@@ -844,11 +904,8 @@ def echo(message):
     if low == "топ огоньков":
         fire_top(message)
         return
-    if low == "винди разорви огонёк":
-        break_fire_request(message)
-        return
 
-    # === РАНДОМ ===
+    # Рандом
     if low == "винди орел или решка" or low == "винди орёл или решка":
         coin_flip(message)
         return
@@ -856,7 +913,7 @@ def echo(message):
         yes_no(message)
         return
 
-    # === ДЕЙСТВИЯ ===
+    # Действия
     if message.reply_to_message:
         target_id = message.reply_to_message.from_user.id
 
@@ -913,6 +970,15 @@ def echo(message):
         bot.send_message(message.chat.id, random.choice(responses))
         return
 
+def who_gay(message):
+    all_u = get_all_users()
+    if not all_u:
+        bot.send_message(message.chat.id, "Никто ещё не писал в чате.")
+        return
+    uid, tag = random.choice(all_u)
+    p = ["Я думаю гей - @" + tag, "Радар: @" + tag, "100% гей - @" + tag]
+    bot.send_message(message.chat.id, random.choice(p))
+
 # ========== ОБРАБОТЧИК КНОПОК ==========
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -925,23 +991,53 @@ def cb(call):
     parts = call.data.split("_")
     action = parts[0]
 
-    if action == "fire":
+    # === РАЗВОД ===
+    if action == "divorce":
         decision = parts[1]
         uid1 = int(parts[2])
         uid2 = int(parts[3])
-        if call.from_user.id != uid2:
+        if call.from_user.id not in [uid1, uid2]:
             return
+
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT agree1, agree2 FROM divorce_votes WHERE uid1 = %s AND uid2 = %s", (uid1, uid2))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return
+        agree1, agree2 = row
+
+        if decision == "yes":
+            if call.from_user.id == uid1:
+                agree1 = 1
+            else:
+                agree2 = 1
+        else:
+            if call.from_user.id == uid1:
+                agree1 = -1
+            else:
+                agree2 = -1
+
+        cur.execute("UPDATE divorce_votes SET agree1 = %s, agree2 = %s WHERE uid1 = %s AND uid2 = %s",
+                    (agree1, agree2, uid1, uid2))
+        conn.commit()
+        cur.close()
+        conn.close()
+
         a = get_user_tag(uid1)
         b = get_user_tag(uid2)
-        if decision == "yes":
-            create_duo_fire(uid1, uid2)
-            text = "🔥 ОГОНЁК СОЗДАН 🔥\n\n" + a + " + " + b + "\nЧисло: 1\n\nПродлевайте каждый день вместе 🔥"
-            bot.edit_message_text(text, call.message.chat.id, call.message.message_id)
-        else:
-            bot.edit_message_text(b + " отказал(а) " + a + " 💔", call.message.chat.id, call.message.message_id)
+
+        if agree1 == 1 and agree2 == 1:
+            delete_marriage(uid1, uid2)
+            bot.edit_message_text("Развод! " + a + " и " + b + " больше не вместе", call.message.chat.id, call.message.message_id)
+        elif agree1 == -1 or agree2 == -1:
+            bot.edit_message_text("Брак остался", call.message.chat.id, call.message.message_id)
         return
 
-    if action == "break":
+    # === ПОТУШЕНИЕ ОГОНЬКА ===
+    if action == "ext":
         decision = parts[1]
         uid1 = int(parts[2])
         uid2 = int(parts[3])
@@ -979,15 +1075,30 @@ def cb(call):
         b = get_user_tag(uid2)
 
         if agree1 == 1 and agree2 == 1:
-            break_duo_fire(uid1, uid2)
-            bot.edit_message_text("🔥 Огонёк разорван. " + a + " и " + b + " больше не связаны.", call.message.chat.id, call.message.message_id)
+            delete_duo_fire(uid1, uid2)
+            bot.edit_message_text("Огонёк между " + a + " и " + b + " был потушен", call.message.chat.id, call.message.message_id)
         elif agree1 == -1 or agree2 == -1:
-            bot.edit_message_text("Огонёк остался. Кто-то отказался разрывать.", call.message.chat.id, call.message.message_id)
-        else:
-            who = a if call.from_user.id == uid1 else b
-            bot.edit_message_text("🔥 " + who + " выбрал(а). Ждём второго...", call.message.chat.id, call.message.message_id)
+            bot.edit_message_text("Огонёк остался", call.message.chat.id, call.message.message_id)
         return
 
+    # === ОГОНЁК СОЗДАНИЕ ===
+    if action == "fire":
+        decision = parts[1]
+        uid1 = int(parts[2])
+        uid2 = int(parts[3])
+        if call.from_user.id != uid2:
+            return
+        a = get_user_tag(uid1)
+        b = get_user_tag(uid2)
+        if decision == "yes":
+            create_duo_fire(uid1, uid2)
+            text = "🔥 ОГОНЁК СОЗДАН 🔥\n\n" + a + " + " + b + "\nЧисло: 1\n\nПродлевайте каждый день вместе 🔥"
+            bot.edit_message_text(text, call.message.chat.id, call.message.message_id)
+        else:
+            bot.edit_message_text(b + " отказал(а) " + a + " 💔", call.message.chat.id, call.message.message_id)
+        return
+
+    # === БРАК ===
     if action in ("accept", "reject"):
         uid1 = int(parts[1])
         uid2 = int(parts[2])
