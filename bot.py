@@ -1037,8 +1037,7 @@ def show_balance_top(message):
 def get_pet_keyboard(used=0):
     kb = types.InlineKeyboardMarkup(row_width=3)
     buttons = []
-    if not (used & 1):
-        buttons.append(types.InlineKeyboardButton("🍖 Покормить", callback_data="pet_feed"))
+    
     if not (used & 2):
         buttons.append(types.InlineKeyboardButton("🚶 Погулять", callback_data="pet_walk"))
     if not (used & 4):
