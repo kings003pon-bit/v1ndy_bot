@@ -1489,3 +1489,5 @@ t.daemon = True
 t.start()
 print("Бот запущен!")
 bot.polling(none_stop=True)
+
+
