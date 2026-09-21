@@ -356,9 +356,8 @@ def calc_decay(pet_row):
     sleep = max(0, sleep - total_decay)
     return food, walk, sleep
 
-def get_health(food, walk, sleep):
-    return int((food + walk + sleep) / 3)
-
+def get_health(walk, sleep):
+    return int((walk + sleep) / 2)
 def pet_action(uid, action_type):
     pet = get_pet(uid)
     if not pet:
@@ -1054,7 +1053,7 @@ def build_pet_text(me):
         return None, None
     pet_type, pet_name, level, exp, food, walk, sleep, last_up = pet
     food, walk, sleep = calc_decay(pet)
-    health = get_health(food, walk, sleep)
+    health = get_health(walk, sleep)
     info = PETS.get(pet_type)
     if not info:
         return None, None
@@ -1070,13 +1069,11 @@ def build_pet_text(me):
         t += emoji + " Ур. 50 (" + str(exp) + "/∞ exp)\n\n"
     else:
         t += emoji + " Ур. " + str(level) + " (" + str(exp) + "/" + str(exp_needed(level)) + " exp)\n\n"
-    t += "🍖 Еда: " + str(food) + "%\n"
+       
     t += "🚶 Прогулка: " + str(walk) + "%\n"
     t += "😴 Сон: " + str(sleep) + "%\n"
     t += "❤️ Здоровье: " + str(health) + "%"
     used = 0
-    if food >= 100:
-        used |= 1
     if walk >= 100:
         used |= 2
     if sleep >= 100:
