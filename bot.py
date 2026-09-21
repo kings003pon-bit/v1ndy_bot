@@ -1406,15 +1406,15 @@ def cb(call):
         open_case(call, parts[1]); return
 
     if action == "skin":
-    pet_type = parts[1]
-    me = call.from_user.id
-    if not get_pet(me): return
-    if pet_type not in get_pet_skins(me): return
-    set_pet_type(me, pet_type)
-    info = PETS.get(pet_type)
-    if info:
-        bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
-    return
+            pet_type = parts[1]
+            me = call.from_user.id
+            if not get_pet(me): return
+            if pet_type not in get_pet_skins(me): return
+            set_pet_type(me, pet_type)
+            info = PETS.get(pet_type)
+            if info:
+                bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
+            return
 
     if action == "divorce":
         decision = parts[1]; uid1 = int(parts[2]); uid2 = int(parts[3])
