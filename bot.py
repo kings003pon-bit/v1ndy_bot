@@ -1361,11 +1361,11 @@ def cb(call):
     if action == "pet":
         sub = parts[1]
         me = call.from_user.id
-    if sub == "done":
-        bot.answer_callback_query(call.id, "Все действия выполнены")
-        return
-    res = pet_action(me, sub)
-    if res:
+        if sub == "done":
+            bot.answer_callback_query(call.id, "Все действия выполнены")
+            return
+        res = pet_action(me, sub)
+        if res:
         add, exp_add = res
         if sub == "food": txt = "🍖 +" + str(add) + "% еды, +" + str(exp_add) + " exp"
         elif sub == "walk": txt = "🚶 +" + str(add) + "% прогулки, +" + str(exp_add) + " exp"
