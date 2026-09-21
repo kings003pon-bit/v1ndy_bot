@@ -1366,14 +1366,14 @@ def cb(call):
             return
         res = pet_action(me, sub)
         if res:
-        add, exp_add = res
-        if sub == "food": txt = "🍖 +" + str(add) + "% еды, +" + str(exp_add) + " exp"
-        elif sub == "walk": txt = "🚶 +" + str(add) + "% прогулки, +" + str(exp_add) + " exp"
-        else: txt = "😴 +" + str(add) + "% сна, +" + str(exp_add) + " exp"
-        bot.answer_callback_query(call.id, txt)
-        pet = get_pet(me)
-        if pet:
-            pet_type, pet_name, level, exp, food, walk, sleep, last_up = pet
+            add, exp_add = res
+            if sub == "food": txt = "🍖 +" + str(add) + "% еды, +" + str(exp_add) + " exp"
+            elif sub == "walk": txt = "🚶 +" + str(add) + "% прогулки, +" + str(exp_add) + " exp"
+            else: txt = "😴 +" + str(add) + "% сна, +" + str(exp_add) + " exp"
+            bot.answer_callback_query(call.id, txt)
+            pet = get_pet(me)
+            if pet:
+                pet_type, pet_name, level, exp, food, walk, sleep, last_up = pet
             food, walk, sleep = calc_decay(pet)
             update_pet_stats(me, food, walk, sleep, level, exp, int(time.time()))
             health = get_health(food, walk, sleep)
