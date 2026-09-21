@@ -344,6 +344,9 @@ def pet_action(uid, action_type):
     pet = get_pet(uid)
     if not pet: return None
     food, walk, sleep = calc_decay(pet)
+    if action_type == "food" and food >= 100: return None
+if action_type == "walk" and walk >= 100: return None
+if action_type == "sleep" and sleep >= 100: return None
     add = random.randint(10, 15)
     if action_type == "food":
         food = min(100, food + add)
@@ -667,13 +670,19 @@ def show_balance_top(message):
         t += prefix + " " + get_user_tag(uid) + " — " + str(coins) + "\n"
     bot.send_message(message.chat.id, t)
 
-def get_pet_keyboard():
+def get_pet_keyboard(used=0):
     kb = types.InlineKeyboardMarkup(row_width=3)
-    kb.add(
-        types.InlineKeyboardButton("🍖 Покормить", callback_data="pet_feed"),
-        types.InlineKeyboardButton("🚶 Погулять", callback_data="pet_walk"),
-        types.InlineKeyboardButton("😴 Спать", callback_data="pet_sleep"),
-    )
+    buttons = []
+    if not (used & 1):
+        buttons.append(types.InlineKeyboardButton("🍖 Покормить", callback_data="pet_feed"))
+    if not (used & 2):
+        buttons.append(types.InlineKeyboardButton("🚶 Погулять", callback_data="pet_walk"))
+    if not (used & 4):
+        buttons.append(types.InlineKeyboardButton("😴 Спать", callback_data="pet_sleep"))
+    if buttons:
+        kb.add(*buttons)
+    else:
+        kb.add(types.InlineKeyboardButton("✅ Всё сделано", callback_data="pet_done"))
     return kb
 
 def show_pet(message):
@@ -1346,29 +1355,61 @@ def cb(call):
     action = parts[0]
 
     if action == "pet":
-        sub = parts[1]
-        me = call.from_user.id
-        res = pet_action(me, sub)
-        if res:
-            add, exp_add = res
-            if sub == "food": txt = "🍖 +" + str(add) + "% еды, +" + str(exp_add) + " exp"
-            elif sub == "walk": txt = "🚶 +" + str(add) + "% прогулки, +" + str(exp_add) + " exp"
-            else: txt = "😴 +" + str(add) + "% сна, +" + str(exp_add) + " exp"
-            bot.answer_callback_query(call.id, txt)
+    sub = parts[1]
+    me = call.from_user.id
+    if sub == "done":
+        bot.answer_callback_query(call.id, "Все действия выполнены")
         return
+    res = pet_action(me, sub)
+    if res:
+        add, exp_add = res
+        if sub == "food": txt = "🍖 +" + str(add) + "% еды, +" + str(exp_add) + " exp"
+        elif sub == "walk": txt = "🚶 +" + str(add) + "% прогулки, +" + str(exp_add) + " exp"
+        else: txt = "😴 +" + str(add) + "% сна, +" + str(exp_add) + " exp"
+        bot.answer_callback_query(call.id, txt)
+        pet = get_pet(me)
+        if pet:
+            pet_type, pet_name, level, exp, food, walk, sleep, last_up = pet
+            food, walk, sleep = calc_decay(pet)
+            update_pet_stats(me, food, walk, sleep, level, exp, int(time.time()))
+            health = get_health(food, walk, sleep)
+            info = PETS.get(pet_type)
+            if info:
+                emoji = level_emoji(level)
+                sad = " 😢" if health == 0 else ""
+                t = info["name"] + " " + info["emoji"] + " (" + info["rarity"] + ")" + sad + "\n\n"
+                t += info["art"] + "\n\n"
+                if pet_name: t += "Имя: " + pet_name + "\n"
+                else: t += "Имя: не задано\nНапиши: изменить имя питомца [имя]\n"
+                if level >= 50: t += emoji + " Ур. 50 (" + str(exp) + "/∞ exp)\n\n"
+                else: t += emoji + " Ур. " + str(level) + " (" + str(exp) + "/" + str(exp_needed(level)) + " exp)\n\n"
+                t += "🍖 Еда: " + str(food) + "%\n"
+                t += "🚶 Прогулка: " + str(walk) + "%\n"
+                t += "😴 Сон: " + str(sleep) + "%\n"
+                t += "❤️ Здоровье: " + str(health) + "%"
+                used = 0
+                if food >= 100: used |= 1
+                if walk >= 100: used |= 2
+                if sleep >= 100: used |= 4
+                try:
+                    bot.edit_message_text(t, call.message.chat.id, call.message.message_id, reply_markup=get_pet_keyboard(used))
+                except:
+                    pass
+    return
 
     if action == "case":
         open_case(call, parts[1]); return
 
     if action == "skin":
-        pet_type = parts[1]
-        me = call.from_user.id
-        if not get_pet(me): return
-        set_pet_type(me, pet_type)
-        info = PETS.get(pet_type)
-        if info:
-            bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
-        return
+    pet_type = parts[1]
+    me = call.from_user.id
+    if not get_pet(me): return
+    if pet_type not in get_pet_skins(me): return
+    set_pet_type(me, pet_type)
+    info = PETS.get(pet_type)
+    if info:
+        bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
+    return
 
     if action == "divorce":
         decision = parts[1]; uid1 = int(parts[2]); uid2 = int(parts[3])
