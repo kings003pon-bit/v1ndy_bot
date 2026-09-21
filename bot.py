@@ -1359,8 +1359,8 @@ def cb(call):
     action = parts[0]
 
     if action == "pet":
-    sub = parts[1]
-    me = call.from_user.id
+        sub = parts[1]
+        me = call.from_user.id
     if sub == "done":
         bot.answer_callback_query(call.id, "Все действия выполнены")
         return
