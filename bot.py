@@ -342,12 +342,16 @@ def get_health(food, walk, sleep):
 
 def pet_action(uid, action_type):
     pet = get_pet(uid)
-    if not pet: return None
+    if not pet:
+        return None
     food, walk, sleep = calc_decay(pet)
- if action_type == "food" and food >= 100: return None
- if action_type == "walk" and walk >= 100: return None
- if action_type == "sleep" and sleep >= 100: return None 
- add = random.randint(10, 15)
+    if action_type == "food" and food >= 100:
+        return None
+    if action_type == "walk" and walk >= 100:
+        return None
+    if action_type == "sleep" and sleep >= 100:
+        return None
+    add = random.randint(10, 15)
     if action_type == "food":
         food = min(100, food + add)
     elif action_type == "walk":
