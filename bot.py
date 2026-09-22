@@ -1218,7 +1218,7 @@ def show_my_cards(message):
     t += "\n━━━━━━━━━━━━━\n"
     t += "✨ Всего очков: " + str(total_points) + "\n"
     t += "💰 Монет/день: " + str(total_coins)
-    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb = types.InlineKeyboardMarkup(row_width=2)
     for cid in user_cards:
         card = get_card(cid)
         if not card:
@@ -1226,6 +1226,8 @@ def show_my_cards(message):
         status = "✅" if cid == equipped else "❌"
         label = card[1] + " " + status
         kb.add(types.InlineKeyboardButton(label, callback_data="card_equip_" + cid))
+    if equipped:
+        kb.add(types.InlineKeyboardButton("🚫 Снять карточку", callback_data="card_unequip"))
     bot.send_message(message.chat.id, t, reply_markup=kb)
 
 def show_my_card(message):
@@ -1996,6 +1998,15 @@ def cb(call):
                 bot.edit_message_text("Карточка " + card[1] + " была надета ✅", call.message.chat.id, call.message.message_id)
             except:
                 pass
+        return
+
+    if action == "card_unequip":
+        me = call.from_user.id
+        set_equipped_card(me, None)
+        try:
+            bot.edit_message_text("Карточка снята ❌", call.message.chat.id, call.message.message_id)
+        except:
+            pass
         return
     
     if action == "divorce":
