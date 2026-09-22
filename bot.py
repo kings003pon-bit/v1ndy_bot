@@ -2002,7 +2002,7 @@ if action == "card_equip":
             pass
     return
                                   
-        if action == "divorce":
+    if action == "divorce":
         decision = parts[1]
         uid1 = int(parts[2])
         uid2 = int(parts[3])
