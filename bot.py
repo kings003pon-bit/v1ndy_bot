@@ -166,6 +166,22 @@ def init_db():
     cur.execute("CREATE TABLE IF NOT EXISTS pet_skins (uid BIGINT, pet_type TEXT, PRIMARY KEY (uid, pet_type))")
     cur.execute("CREATE TABLE IF NOT EXISTS fire_system (id INTEGER PRIMARY KEY, last_expire BIGINT DEFAULT 0)")
     cur.execute("INSERT INTO fire_system (id, last_expire) VALUES (1, 0) ON CONFLICT (id) DO NOTHING")
+    
+    cur.execute("""CREATE TABLE IF NOT EXISTS cards (
+        card_id TEXT PRIMARY KEY, name TEXT, rarity TEXT,
+        points INTEGER DEFAULT 0, coins INTEGER DEFAULT 0, photo TEXT)""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS user_cards (
+        uid BIGINT, card_id TEXT, owned_at BIGINT DEFAULT 0,
+        PRIMARY KEY (uid, card_id))""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS user_cards_state (
+        uid BIGINT PRIMARY KEY, equipped_card TEXT DEFAULT NULL,
+        last_income BIGINT DEFAULT 0)""")
+
+    cur.execute("""INSERT INTO cards (card_id, name, rarity, points, coins, photo)
+        VALUES ('svyaz', 'Связь', 'Редкая', 67, 11,
+        'https://i.postimg.cc/zvfPF2hS/7dfcf2f1760df65d11d5fb55749cc8a4.jpg')
+        ON CONFLICT (card_id) DO NOTHING""")
+    
     conn.commit()
     cur.close()
     conn.close()
@@ -397,6 +413,120 @@ def pet_action(uid, action_type):
         level += 1
     update_pet_stats(uid, food, walk, sleep, level, exp, int(time.time()))
     return add, add_exp
+    
+# ========== КАРТОЧКИ ==========
+
+def get_card(card_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT card_id, name, rarity, points, coins, photo FROM cards WHERE card_id = %s", (card_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
+def get_all_cards():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT card_id, name, rarity, points, coins, photo FROM cards")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+def add_card_to_db(card_id, name, rarity, points, coins, photo):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""INSERT INTO cards (card_id, name, rarity, points, coins, photo)
+        VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (card_id) DO NOTHING""",
+        (card_id, name, rarity, points, coins, photo))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_user_cards(uid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT card_id FROM user_cards WHERE uid = %s", (uid,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [r[0] for r in rows]
+
+def give_card(uid, card_id):
+    now = int(time.time())
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""INSERT INTO user_cards (uid, card_id, owned_at)
+        VALUES (%s, %s, %s) ON CONFLICT (uid, card_id) DO NOTHING""",
+        (uid, card_id, now))
+    cur.execute("""INSERT INTO user_cards_state (uid, equipped_card, last_income)
+        VALUES (%s, NULL, %s) ON CONFLICT (uid) DO NOTHING""", (uid, now))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return now
+
+def get_equipped_card(uid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT equipped_card FROM user_cards_state WHERE uid = %s", (uid,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row[0] if row else None
+
+def set_equipped_card(uid, card_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""INSERT INTO user_cards_state (uid, equipped_card, last_income)
+        VALUES (%s, %s, 0) ON CONFLICT (uid) DO UPDATE SET equipped_card = %s""",
+        (uid, card_id, card_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_user_cards_state(uid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT equipped_card, last_income FROM user_cards_state WHERE uid = %s", (uid,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row if row else (None, 0)
+
+def get_user_total_points(uid):
+    cards = get_user_cards(uid)
+    total = 0
+    for cid in cards:
+        card = get_card(cid)
+        if card:
+            total += card[3]
+    return total
+
+def get_user_total_coins_per_day(uid):
+    cards = get_user_cards(uid)
+    total = 0
+    for cid in cards:
+        card = get_card(cid)
+        if card:
+            total += card[4]
+    return total
+
+def get_cards_top():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT uid FROM user_cards")
+    uids = cur.fetchall()
+    cur.close()
+    conn.close()
+    result = []
+    for (uid,) in uids:
+        points = get_user_total_points(uid)
+        coins = get_user_total_coins_per_day(uid)
+        result.append((uid, points, coins))
+    result.sort(key=lambda x: x[1], reverse=True)
+    return result[:10]
     
 # ========== ОГОНЬКИ ==========
 
@@ -1066,6 +1196,105 @@ def show_balance_top(message):
         t += prefix + " " + get_user_tag(uid) + " — " + str(coins) + "\n"
     bot.send_message(message.chat.id, t)
 
+# ========== КОМАНДЫ КАРТОЧЕК ==========
+
+def show_my_cards(message):
+    me = message.from_user.id
+    save_user(me, message.from_user.first_name, message.from_user.username)
+    user_cards = get_user_cards(me)
+    if not user_cards:
+        bot.send_message(message.chat.id, "У тебя нет карточек. Купи: винди кейс карточек")
+        return
+    equipped = get_equipped_card(me)
+    total_points = get_user_total_points(me)
+    total_coins = get_user_total_coins_per_day(me)
+    t = "🎴 Мои карточки:\n\n"
+    for i, cid in enumerate(user_cards, 1):
+        card = get_card(cid)
+        if not card:
+            continue
+        status = "✅" if cid == equipped else "❌"
+        t += str(i) + ". 🃏 " + card[1] + " — " + str(card[3]) + " очков, " + str(card[4]) + " монет/день " + status + "\n"
+    t += "\n━━━━━━━━━━━━━\n"
+    t += "✨ Всего очков: " + str(total_points) + "\n"
+    t += "💰 Монет/день: " + str(total_coins)
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    for cid in user_cards:
+        card = get_card(cid)
+        if not card:
+            continue
+        status = "✅" if cid == equipped else "❌"
+        label = card[1] + " " + status
+        kb.add(types.InlineKeyboardButton(label, callback_data="card_equip_" + cid))
+    bot.send_message(message.chat.id, t, reply_markup=kb)
+
+def show_my_card(message):
+    me = message.from_user.id
+    equipped = get_equipped_card(me)
+    if not equipped:
+        bot.send_message(message.chat.id, "У тебя нет надетой карточки. Выбери в «мои карточки»")
+        return
+    card = get_card(equipped)
+    if not card:
+        return
+    caption = "🃏 «" + card[1] + "» (" + card[2] + ")\n"
+    caption += "✨ Очки: +" + str(card[3]) + "\n"
+    caption += "💰 Монеты: +" + str(card[4]) + "/день"
+    bot.send_photo(message.chat.id, card[5], caption=caption)
+
+def show_cards_top(message):
+    top = get_cards_top()
+    if not top:
+        bot.send_message(message.chat.id, "Пока нет карточек у юзеров.")
+        return
+    t = "🏆 Топ карточек:\n\n"
+    medals = ["🥇", "🥈", "🥉"]
+    for i, (uid, points, coins) in enumerate(top):
+        prefix = medals[i] if i < 3 else str(i + 1) + "."
+        cards = get_user_cards(uid)
+        card_names = []
+        for cid in cards:
+            card = get_card(cid)
+            if card:
+                card_names.append(card[1])
+        names_str = ", ".join(card_names) if card_names else "—"
+        t += prefix + " " + get_user_tag(uid) + " — " + names_str + " — " + str(points) + " очков, " + str(coins) + " монет/день\n"
+    bot.send_message(message.chat.id, t)
+
+def show_case_cards(message):
+    me = message.from_user.id
+    save_user(me, message.from_user.first_name, message.from_user.username)
+    coins, _ = get_balance(me)
+    if coins < 200:
+        bot.send_message(message.chat.id, "Недостаточно монет. Нужно 200")
+        return
+    set_coins(me, coins - 200)
+    all_cards = get_all_cards()
+    if not all_cards:
+        bot.send_message(message.chat.id, "❌ Карточек в базе нет.")
+        return
+    user_owned = get_user_cards(me)
+    available = [c for c in all_cards if c[0] not in user_owned]
+    if not available:
+        bot.send_message(message.chat.id, "У тебя уже есть все карточки!")
+        return
+    chosen = random.choice(available)
+    card_id, name, rarity, points, coins_per_day, photo = chosen
+    give_card(me, card_id)
+    add_coins(me, coins_per_day)
+    msg = bot.send_message(message.chat.id, "📦 Открываем кейс...")
+    time.sleep(1)
+    bot.edit_message_text("📦 Открываем кейс... 🔄", message.chat.id, msg.message_id)
+    time.sleep(1)
+    bot.edit_message_text("📦 Открываем кейс... ✨", message.chat.id, msg.message_id)
+    time.sleep(1)
+    bot.delete_message(message.chat.id, msg.message_id)
+    caption = "🎉 Коллекция пополнилась карточкой «" + name + "»\n\n"
+    caption += "💎 Редкость • " + rarity + "\n"
+    caption += "✨ Очки • +" + str(points) + "\n"
+    caption += "💰 Монеты • +" + str(coins_per_day) + " (зачислено)"
+    bot.send_photo(message.chat.id, photo, caption=caption)
+
 # ========== ПИТОМЕЦ ==========
 
 def get_pet_keyboard(used=0):
@@ -1547,6 +1776,18 @@ def echo(message):
     if low == "винди кейсы":
         show_cases(message)
         return
+    if low == "мои карточки":
+       show_my_cards(message)
+       return
+    if low == "моя карточка":
+       show_my_card(message)
+       return
+    if low == "топ карточек":
+       show_cards_top(message)
+       return
+    if low == "винди кейс карточек":
+       show_case_cards(message)
+       return
     if low == "винди заведи питомца":
         buy_pet(message)
         return
@@ -1737,6 +1978,26 @@ def cb(call):
             bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
         return
 
+    if action == "card_equip":
+        card_id = parts[2] if len(parts) > 2 else None
+        me = call.from_user.id
+        if not card_id:
+            return
+        if card_id not in get_user_cards(me):
+            bot.answer_callback_query(call.id, "Это не твоя карточка")
+            return
+        if get_equipped_card(me) == card_id:
+            bot.answer_callback_query(call.id, "Эта карточка уже надета")
+            return
+        set_equipped_card(me, card_id)
+        card = get_card(card_id)
+        if card:
+            try:
+                bot.edit_message_text("Карточка " + card[1] + " была надета ✅", call.message.chat.id, call.message.message_id)
+            except:
+                pass
+        return
+    
     if action == "divorce":
         decision = parts[1]
         uid1 = int(parts[2])
