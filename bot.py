@@ -1978,29 +1978,29 @@ def cb(call):
             bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
 
     if action == "card_equip":
-    card_id = parts[2] if len(parts) > 2 else None
-    me = call.from_user.id
-    if not card_id:
+        card_id = parts[2] if len(parts) > 2 else None
+        me = call.from_user.id
+        if not card_id:
+            return
+        if card_id not in get_user_cards(me):
+            bot.answer_callback_query(call.id, "Это не твоя карточка")
+            return
+        card = get_card(card_id)
+        if not card:
+            return
+        if get_equipped_card(me) == card_id:
+            set_equipped_card(me, None)
+            try:
+                bot.edit_message_text("Карточка " + card[1] + " была снята ❌", call.message.chat.id, call.message.message_id)
+            except:
+                pass
+        else:
+            set_equipped_card(me, card_id)
+            try:
+                bot.edit_message_text("Карточка " + card[1] + " была надета ✅", call.message.chat.id, call.message.message_id)
+            except:
+                pass
         return
-    if card_id not in get_user_cards(me):
-        bot.answer_callback_query(call.id, "Это не твоя карточка")
-        return
-    card = get_card(card_id)
-    if not card:
-        return
-    if get_equipped_card(me) == card_id:
-        set_equipped_card(me, None)
-        try:
-            bot.edit_message_text("Карточка " + card[1] + " была снята ❌", call.message.chat.id, call.message.message_id)
-        except:
-            pass
-    else:
-        set_equipped_card(me, card_id)
-        try:
-            bot.edit_message_text("Карточка " + card[1] + " была надета ✅", call.message.chat.id, call.message.message_id)
-        except:
-            pass
-    return
                                   
     if action == "divorce":
         decision = parts[1]
