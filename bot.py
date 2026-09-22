@@ -63,7 +63,25 @@ BEAR_ART = """╲╲╭━╮╲╲╲╱╱╱╭━╮╱╱
 ╲╲┃┊┗━┛▇▇┗━┛┊┃╱╱
 ╲╲┃╰━━━━━━━━╯┃╱╱"""
 
+COW_ART = """┈┈▕╲▂▂▂▂╱▏
+┈┈┈╲╱╭╱╲╱╲
+┈╱▔▔┈┊▏▕▏▕
+▕▂╱▔╳▔╲▊▏▊╱▔╲▔╲
+┈┈┈┈▏▕▏▔▔▔▕▋▕▕▋▏
+┈┈┈┈╲┈╲▂▂▂▂▂▂▂╱
+┈┈┈┈▕╲▂▂▂▂▂╱
+┈┈┈╱▔╲▕"""
+
+PIG_ART = """┊┊┊┊┊┊┊┊┊┊┊┊┊┊┊┊
+▂╱▔▔╲╱▔▔▔▔╲╱▔▔╲▂
+╲┈▔╲┊╭╮┈┈╭╮┊╱▔┈╱
+┊▔╲╱▏┈╱▔▔╲┈▕╲╱▔┊
+┊┊┊┃┈┈▏┃┃▕┈┈┃┊┊┊
+┊┊┊▏╲┈╲▂▂╱┈╱▕┊┊┊"""
+
 PETS = {
+    "cow": {"name": "Корова", "emoji": "🐮", "art": COW_ART, "rarity": "редкий"},
+    "pig": {"name": "Свинья", "emoji": "🐷", "art": PIG_ART, "rarity": "редкий"},
     "dog": {"name": "Собака", "emoji": "🐶", "art": DOG_ART, "rarity": "обычный"},
     "cat": {"name": "Кошка", "emoji": "🐱", "art": CAT_ART, "rarity": "обычный"},
     "snake": {"name": "Змея", "emoji": "🐍", "art": SNAKE_ART, "rarity": "обычный"},
@@ -72,6 +90,8 @@ PETS = {
 }
 
 NAME_TO_TYPE = {
+    "корова": "cow", "cow": "cow",
+    "свинья": "pig", "свинью": "pig", "pig": "pig",
     "собака": "dog", "пёс": "dog", "пес": "dog", "dog": "dog",
     "кошка": "cat", "кот": "cat", "cat": "cat",
     "змея": "snake", "snake": "snake",
@@ -81,7 +101,7 @@ NAME_TO_TYPE = {
 
 CASES = {
     "common": {"name": "Обычный", "price": 45, "pets": ["dog", "cat", "snake"]},
-    "rare": {"name": "Редкий", "price": 90, "pets": ["elephant", "bear"]},
+    "rare": {"name": "Редкий", "price": 90, "pets": ["elephant", "bear", "cow", "pig"]},
 }
 
 def exp_needed(level):
@@ -964,8 +984,30 @@ def who_gay(message):
         bot.send_message(message.chat.id, "Никто ещё не писал в чате.")
         return
     uid, tag = random.choice(all_u)
-    bot.send_message(message.chat.id, random.choice(["Я думаю гей - @" + tag, "Радар: @" + tag, "100% гей - @" + tag]))# ========== СТАРТ ==========
+    bot.send_message(message.chat.id, random.choice(["Я думаю гей - @" + tag, "Радар: @" + tag, "100% гей - @" + tag]))
+    
+    # ========== СТАРТ ==========
 
+def who_is_olya(message):
+    phrases = [
+        "Оля — королева 👑",
+        "Оля — лучшая 💖",
+        "Оля — звезда ⭐",
+        "Оля — легенда 🔥",
+        "Оля — красотка 🌹",
+        "Оля — умница 🧠",
+        "Оля — солнышко ☀️",
+        "Оля — прекрасна ✨",
+        "Оля — богиня 🌸",
+        "Оля — мечта 💫",
+        "Оля — сокровище 💎",
+        "Оля — икона 🎀",
+        "Оля — лапочка 🐱",
+        "Оля — суперстар 🌟",
+        "Оля — вне конкуренции 🏆",
+    ]
+    bot.send_message(message.chat.id, random.choice(phrases))
+    
 @bot.message_handler(commands=["start"])
 def start(message):
     save_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
@@ -1626,6 +1668,9 @@ def echo(message):
         return
     if "винди" in low and "гей" in low:
         who_gay(message)
+        return
+    if "винди" in low and "оля" in low:
+        who_is_olya(message)
         return
     if low == "ало":
         responses = [
