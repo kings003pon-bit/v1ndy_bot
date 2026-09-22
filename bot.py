@@ -1977,7 +1977,7 @@ def cb(call):
         if info:
             bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
 
-if action == "card_equip":
+    if action == "card_equip":
     card_id = parts[2] if len(parts) > 2 else None
     me = call.from_user.id
     if not card_id:
