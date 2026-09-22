@@ -1226,8 +1226,6 @@ def show_my_cards(message):
         status = "✅" if cid == equipped else "❌"
         label = card[1] + " " + status
         kb.add(types.InlineKeyboardButton(label, callback_data="card_equip_" + cid))
-    if equipped:
-        kb.add(types.InlineKeyboardButton("🚫 Снять карточку", callback_data="card_unequip"))
     bot.send_message(message.chat.id, t, reply_markup=kb)
 
 def show_my_card(message):
@@ -1977,39 +1975,34 @@ def cb(call):
         set_pet_type(me, pet_type)
         info = PETS.get(pet_type)
         if info:
-            bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
-        return
+            bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id
 
-    if action == "card_equip":
-        card_id = parts[2] if len(parts) > 2 else None
-        me = call.from_user.id
-        if not card_id:
-            return
-        if card_id not in get_user_cards(me):
-            bot.answer_callback_query(call.id, "Это не твоя карточка")
-            return
-        if get_equipped_card(me) == card_id:
-            bot.answer_callback_query(call.id, "Эта карточка уже надета")
-            return
-        set_equipped_card(me, card_id)
-        card = get_card(card_id)
-        if card:
-            try:
-                bot.edit_message_text("Карточка " + card[1] + " была надета ✅", call.message.chat.id, call.message.message_id)
-            except:
-                pass
+if action == "card_equip":
+    card_id = parts[2] if len(parts) > 2 else None
+    me = call.from_user.id
+    if not card_id:
         return
-
-    if action == "card_unequip":
-        me = call.from_user.id
+    if card_id not in get_user_cards(me):
+        bot.answer_callback_query(call.id, "Это не твоя карточка")
+        return
+    card = get_card(card_id)
+    if not card:
+        return
+    if get_equipped_card(me) == card_id:
         set_equipped_card(me, None)
         try:
-            bot.edit_message_text("Карточка снята ❌", call.message.chat.id, call.message.message_id)
+            bot.edit_message_text("Карточка " + card[1] + " была снята ❌", call.message.chat.id, call.message.message_id)
         except:
             pass
-        return
-    
-    if action == "divorce":
+    else:
+        set_equipped_card(me, card_id)
+        try:
+            bot.edit_message_text("Карточка " + card[1] + " была надета ✅", call.message.chat.id, call.message.message_id)
+        except:
+            pass
+    return
+                                  
+        if action == "divorce":
         decision = parts[1]
         uid1 = int(parts[2])
         uid2 = int(parts[3])
