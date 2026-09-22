@@ -1975,7 +1975,7 @@ def cb(call):
         set_pet_type(me, pet_type)
         info = PETS.get(pet_type)
         if info:
-            bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id
+            bot.edit_message_text("✅ Скин изменён на " + info["emoji"] + " " + info["name"], call.message.chat.id, call.message.message_id)
 
 if action == "card_equip":
     card_id = parts[2] if len(parts) > 2 else None
