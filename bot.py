@@ -229,17 +229,10 @@ def add_win(uid):
     conn.close()
 
 def get_level(coins):
-    if coins <= 100:
-        return 1
-    level = 1
-    high = 100
-    while level < 50:
-        next_high = high * 2
-        if coins <= next_high:
-            return level + 1
-        level += 1
-        high = next_high
-    return 50
+    level = coins // 250 + 1
+    if level > 50:
+        level = 50
+    return level
 
 def get_balance_top():
     conn = get_conn()
