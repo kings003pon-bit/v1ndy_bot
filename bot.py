@@ -1793,6 +1793,27 @@ def echo(message):
     if low == "винди кейс карточек":
        show_case_cards(message)
        return
+    if low.startswith("карточка "):
+        parts2 = low.split()
+        if len(parts2) >= 2 and parts2[1].isdigit():
+            num = int(parts2[1])
+            me = message.from_user.id
+            user_cards = get_user_cards(me)
+            if num < 1 or num > len(user_cards):
+                bot.send_message(message.chat.id, "У тебя нет такой карточки")
+                return
+            card_id = user_cards[num - 1]
+            card = get_card(card_id)
+            if not card:
+                bot.send_message(message.chat.id, "Карточка не найдена")
+                return
+            if get_equipped_card(me) == card_id:
+                set_equipped_card(me, None)
+                bot.send_message(message.chat.id, "Карточка " + card[1] + " была снята ❌")
+            else:
+                set_equipped_card(me, card_id)
+                bot.send_message(message.chat.id, "Карточка " + card[1] + " была надета ✅")
+            return    
     if low == "винди заведи питомца":
         buy_pet(message)
         return
