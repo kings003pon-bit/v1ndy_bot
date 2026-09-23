@@ -532,7 +532,31 @@ def get_cards_top():
         result.append((uid, points, coins))
     result.sort(key=lambda x: x[1], reverse=True)
     return result[:10]
-    
+
+def check_income(uid):
+    state = get_user_cards_state(uid)
+    if not state:
+        return 0
+    equipped, last_income = state
+    user_cards = get_user_cards(uid)
+    if not user_cards:
+        return 0
+    now = int(time.time())
+    if last_income == 0:
+        return 0
+    if now - last_income >= 86400:
+        income = get_user_total_coins_per_day(uid)
+        if income > 0:
+            add_coins(uid, income)
+            conn = get_conn()
+            cur = conn.cursor()
+            cur.execute("UPDATE user_cards_state SET last_income = %s WHERE uid = %s", (now, uid))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return income
+    return 0   
+
 # ========== ОГОНЬКИ ==========
 
 def get_all_duo_fires(uid):
@@ -634,6 +658,33 @@ def background_fire_check():
                 set_last_expire(int(now.timestamp()))
         except Exception as e:
             print("Fire check error:", e)
+        time.sleep(60)
+
+def background_income_check():
+    while True:
+        try:
+            now = int(time.time())
+            conn = get_conn()
+            cur = conn.cursor()
+            cur.execute("""SELECT uc.uid FROM user_cards_state uc
+                WHERE uc.last_income > 0
+                AND uc.last_income + 86400 <= %s
+                AND EXISTS (SELECT 1 FROM user_cards u WHERE u.uid = uc.uid)""", (now,))
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            for (uid,) in rows:
+                income = get_user_total_coins_per_day(uid)
+                if income > 0:
+                    add_coins(uid, income)
+                    conn = get_conn()
+                    cur = conn.cursor()
+                    cur.execute("UPDATE user_cards_state SET last_income = %s WHERE uid = %s", (now, uid))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+        except Exception as e:
+            print("Income check error:", e)
         time.sleep(60)
 
 # ========== БРАК ==========
@@ -1597,6 +1648,7 @@ def fire_top(message):
 def echo(message):
     if message.from_user:
         save_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+        check_income(message.from_user.id)
     if message.reply_to_message and message.reply_to_message.from_user:
         r = message.reply_to_message.from_user
         save_user(r.id, r.first_name, r.username)
@@ -2127,5 +2179,8 @@ init_db()
 t = threading.Thread(target=background_fire_check)
 t.daemon = True
 t.start()
+t2 = threading.Thread(target=background_income_check)
+t2.daemon = True
+t2.start()   
 print("Бот запущен!")
 bot.polling(none_stop=True)
