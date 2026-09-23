@@ -186,6 +186,21 @@ def init_db():
         VALUES ('chipugai', 'chipugai', 'Ультра', 5000, 50,
         'https://i.postimg.cc/ZYQk4QQR/Screenshot-20260923-021601.png')
         ON CONFLICT (card_id) DO NOTHING""")
+
+    cur.execute("""INSERT INTO cards (card_id, name, rarity, points, coins, photo)
+        VALUES ('vas', 'Вась', 'Сверхредкая', 500, 8,
+        'https://i.postimg.cc/nVS61WYz/Screenshot-20260923-033128.png')
+        ON CONFLICT (card_id) DO NOTHING""")
+
+    cur.execute("""INSERT INTO cards (card_id, name, rarity, points, coins, photo)
+        VALUES ('alo', 'ало', 'Мифическая', 1500, 10,
+        'https://i.postimg.cc/rsH3FdF0/Screenshot-20260923-033632.png')
+        ON CONFLICT (card_id) DO NOTHING""")
+
+    cur.execute("""INSERT INTO cards (card_id, name, rarity, points, coins, photo)
+        VALUES ('svas', 'Свась', 'Мифическая', 1000, 10,
+        'https://i.postimg.cc/dQNz9fmM/Screenshot-20260923-033316.png')
+        ON CONFLICT (card_id) DO NOTHING""")
     
     conn.commit()
     cur.close()
