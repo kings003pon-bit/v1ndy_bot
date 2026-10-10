@@ -2198,4 +2198,4 @@ t2 = threading.Thread(target=background_income_check)
 t2.daemon = True
 t2.start()   
 print("Бот запущен!")
-bot.polling(none_stop=True)
+bot.infinity_polling(timeout=10, long_polling_timeout=5)
